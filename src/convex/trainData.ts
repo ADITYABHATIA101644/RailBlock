@@ -3,82 +3,35 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 
-/* ===== Types ===== */
-interface TrainRoute {
-  SerialNo: string;
-  StationName: string;
-  StationCode: string;
-  Distance: string;
-  IsDeparted: string;
-  Day: string;
-  ScheduleArrival: string;
-  ActualArrival: string;
-  DelayInArrival: string;
-  ScheduleDeparture: string;
-  ActualDeparture: string;
-  DelayInDeparture: string;
-}
+const BASE_URL = "http://indianrailapi.com/api/v2";
 
-interface LiveTrainResponse {
-  ResponseCode: string;
-  StartDate: string;
-  TrainNumber: string;
-  CurrentPosition: unknown;
-  CurrentStation: TrainRoute;
-  TrainRoute: TrainRoute[];
-  Message: string;
-}
-
-interface StationTrain {
-  Name: string;
-  Number: string;
-  Source: string;
-  Destination: string;
-  ScheduleArrival: string;
-  ScheduleDeparture: string;
-  Halt: string;
-  ExpectedArrival: string;
-  DelayInArrival: string;
-  ExpectedDeparture: string;
-  DelayInDeparture: string;
-}
-
-interface LiveStationResponse {
-  ResponseCode: string;
-  Status: string;
-  Trains: StationTrain[];
-  Message: string;
-}
-
-/* ===== Helper ===== */
-async function fetchIndianRailApi(endpoint: string, params: Record<string, string>): Promise<unknown> {
+async function fetchApi(endpoint: string, pathParams: string): Promise<Record<string, unknown>> {
   const apiKey = process.env.INDIAN_RAIL_API_KEY;
   if (!apiKey) {
-    throw new Error("INDIAN_RAIL_API_KEY not configured");
+    throw new Error("INDIAN_RAIL_API_KEY not configured. Add it in Convex dashboard → Settings → Environment Variables.");
   }
-  const url = new URL(`https://indianrailapi.com/api/v2/${endpoint}`);
-  url.searchParams.set("apikey", apiKey);
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
-  }
-  const res = await fetch(url.toString());
+  const url = `${BASE_URL}/${endpoint}/apikey/${apiKey}/${pathParams}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Indian Rail API error: ${res.status}`);
-  return res.json();
+  return res.json() as Promise<Record<string, unknown>>;
 }
 
-/* ===== Actions ===== */
+function todayFormatted(): string {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+}
 
 /** Get live running status of a train */
 export const getLiveTrain = action({
   args: { trainNumber: v.string() },
   handler: async (_ctx, args) => {
-    const data = (await fetchIndianRailApi("LiveTrainStatus", {
-      TrainNumber: args.trainNumber,
-      Date: new Date().toISOString().split("T")[0].split("-").reverse().join("-"),
-    })) as LiveTrainResponse;
+    const data = await fetchApi(
+      "LiveTrainStatus",
+      `trainnumber/${args.trainNumber}/date/${todayFormatted()}/`
+    );
 
     if (data.ResponseCode !== "200") {
-      throw new Error(data.Message || "Failed to fetch train status");
+      throw new Error((data.Message as string) || "Failed to fetch train status");
     }
 
     return {
@@ -86,14 +39,14 @@ export const getLiveTrain = action({
       startDate: data.StartDate,
       currentStation: data.CurrentStation
         ? {
-            name: data.CurrentStation.StationName,
-            code: data.CurrentStation.StationCode,
-            scheduledArrival: data.CurrentStation.ScheduleArrival,
-            actualArrival: data.CurrentStation.ActualArrival,
-            delay: data.CurrentStation.DelayInArrival,
+            name: (data.CurrentStation as Record<string, string>).StationName,
+            code: (data.CurrentStation as Record<string, string>).StationCode,
+            scheduledArrival: (data.CurrentStation as Record<string, string>).ScheduleArrival,
+            actualArrival: (data.CurrentStation as Record<string, string>).ActualArrival,
+            delay: (data.CurrentStation as Record<string, string>).DelayInArrival,
           }
         : null,
-      route: data.TrainRoute.map((s) => ({
+      route: ((data.TrainRoute as Record<string, string>[]) || []).map((s) => ({
         station: s.StationName,
         code: s.StationCode,
         scheduledArrival: s.ScheduleArrival,
@@ -108,20 +61,20 @@ export const getLiveTrain = action({
   },
 });
 
-/** Get all trains currently at or arriving at a station */
+/** Get all trains at a station */
 export const getLiveStation = action({
   args: { stationCode: v.string() },
   handler: async (_ctx, args) => {
-    const data = (await fetchIndianRailApi("LiveStation", {
-      Station: args.stationCode,
-      Hours: "2",
-    })) as LiveStationResponse;
+    const data = await fetchApi(
+      "LiveStation",
+      `Station/${args.stationCode}/hours/2/`
+    );
 
     if (data.ResponseCode !== "200") {
-      throw new Error(data.Message || "Failed to fetch station data");
+      throw new Error((data.Message as string) || "Failed to fetch station data");
     }
 
-    return data.Trains.map((t) => ({
+    return ((data.Trains as Record<string, string>[]) || []).map((t) => ({
       name: t.Name,
       number: t.Number,
       source: t.Source,
@@ -140,30 +93,13 @@ export const getLiveStation = action({
 export const getTrainsBetween = action({
   args: { from: v.string(), to: v.string() },
   handler: async (_ctx, args) => {
-    const data = (await fetchIndianRailApi("TrainBetweenStations", {
-      From: args.from,
-      To: args.to,
-      Date: new Date().toISOString().split("T")[0].split("-").reverse().join("-"),
-    })) as { Trains?: unknown[]; ResponseCode: string; Message: string };
+    const data = await fetchApi(
+      "TrainBetweenStations",
+      `From/${args.from}/To/${args.to}/Date/${todayFormatted()}/`
+    );
 
     if (data.ResponseCode !== "200") {
-      throw new Error(data.Message || "Failed to fetch trains");
-    }
-
-    return data.Trains || [];
-  },
-});
-
-/** Get cancelled trains for today */
-export const getCancelledTrains = action({
-  args: {},
-  handler: async () => {
-    const data = (await fetchIndianRailApi("CancelledTrains", {
-      Date: new Date().toISOString().split("T")[0].split("-").reverse().join("-"),
-    })) as { Trains?: unknown[]; ResponseCode: string; Message: string };
-
-    if (data.ResponseCode !== "200") {
-      throw new Error(data.Message || "Failed to fetch cancelled trains");
+      throw new Error((data.Message as string) || "Failed to fetch trains");
     }
 
     return data.Trains || [];
@@ -174,12 +110,13 @@ export const getCancelledTrains = action({
 export const getTrainSchedule = action({
   args: { trainNumber: v.string() },
   handler: async (_ctx, args) => {
-    const data = (await fetchIndianRailApi("TrainSchedule", {
-      TrainNumber: args.trainNumber,
-    })) as { Route?: unknown[]; ResponseCode: string; Message: string };
+    const data = await fetchApi(
+      "TrainSchedule",
+      `TrainNumber/${args.trainNumber}/`
+    );
 
     if (data.ResponseCode !== "200") {
-      throw new Error(data.Message || "Failed to fetch schedule");
+      throw new Error((data.Message as string) || "Failed to fetch schedule");
     }
 
     return data.Route || [];
