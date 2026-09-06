@@ -200,15 +200,15 @@ html.dark {
 
 /* Glass card effect */
 .glass-card {
-  background: oklch(1 0 0 / 0.05);
-  backdrop-filter: blur(20px);
-  border: 1px solid oklch(1 0 0 / 0.1);
+  background: oklch(0.18 0.03 250 / 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid oklch(1 0 0 / 0.12);
 }
 
 .glass-card-solid {
-  background: oklch(0.15 0.03 250 / 0.8);
+  background: oklch(0.18 0.03 250 / 0.8);
   backdrop-filter: blur(20px);
-  border: 1px solid oklch(1 0 0 / 0.1);
+  border: 1px solid oklch(1 0 0 / 0.12);
 }
 
 /* Glowing border */
