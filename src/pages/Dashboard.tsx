@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
 import Sidebar from "@/components/layout/Sidebar";
@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Bell,
   Train,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import {
   BarChart,
@@ -36,6 +38,14 @@ import {
   Pie,
   Cell,
 } from "recharts";
+
+const notifications = [
+  { id: 1, type: "conflict", title: "Block Conflict Detected", message: "BLK-0851 conflicts with BLK-0849 on Delhi-Mathura corridor", time: "2 min ago", read: false },
+  { id: 2, type: "approval", title: "Block Approved", message: "BLK-0847 approved by Sr. DOM for P-Way engineering work", time: "15 min ago", read: false },
+  { id: 3, type: "alert", title: "Asset Health Warning", message: "Track KM 168 health score dropped to 62/100 — rail wear threshold", time: "32 min ago", read: false },
+  { id: 4, type: "success", title: "Block Completed", message: "BLK-0843 completed — 98% work done in 2h45m (under estimate)", time: "1 hr ago", read: true },
+  { id: 5, type: "info", title: "AI Recommendation Ready", message: "New optimization available for Faridabad-Mathura track renewal", time: "2 hr ago", read: true },
+];
 
 /* ===== KPI CARDS DATA ===== */
 const kpiCards = [
@@ -132,8 +142,28 @@ const urgencyColors: Record<string, string> = {
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notifs, setNotifs] = useState(notifications);
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const notifRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifications(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const unreadCount = notifs.filter(n => !n.read).length;
+  const markAllRead = () => setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+  const role = sessionStorage.getItem('railblock_role') || 'planner';
+  const roleLabels: Record<string, string> = { admin: 'DRM / Admin', approver: 'Sr. DOM', planner: 'Section Engineer', field: 'Field Crew', viewer: 'Safety Officer' };
 
   const path = location.pathname;
   const isHome = path === "/dashboard";
@@ -177,17 +207,93 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/15 transition-colors">
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center">
-                3
-              </span>
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
-                {user?.name?.[0] || "U"}
-              </div>
-              <div className="text-sm font-medium">{user?.name || "User"}</div>
+            {/* Notification Bell */}
+            <div ref={notifRef} className="relative">
+              <button
+                onClick={() => { setShowNotifications(!showNotifications); setShowUserMenu(false); }}
+                className="relative w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/15 transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 top-12 w-96 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
+                    <h3 className="font-semibold text-sm">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <button onClick={markAllRead} className="text-xs text-primary hover:underline">
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-auto">
+                    {notifs.map(n => (
+                      <div
+                        key={n.id}
+                        className={`px-4 py-3 border-b border-border/20 hover:bg-primary/5 transition-colors cursor-pointer ${!n.read ? 'bg-primary/5' : ''}`}
+                        onClick={() => setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                            n.type === 'conflict' ? 'bg-red-500/15' :
+                            n.type === 'approval' ? 'bg-amber-500/15' :
+                            n.type === 'success' ? 'bg-green-500/15' :
+                            n.type === 'alert' ? 'bg-orange-500/15' : 'bg-blue-500/15'
+                          }`}>
+                            {n.type === 'conflict' ? <AlertTriangle className="w-4 h-4 text-red-400" /> :
+                             n.type === 'approval' ? <Clock className="w-4 h-4 text-amber-400" /> :
+                             n.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> :
+                             <Bell className="w-4 h-4 text-blue-400" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">{n.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{n.time}</p>
+                          </div>
+                          {!n.read && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* User Menu */}
+            <div ref={userMenuRef} className="relative">
+              <button
+                onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
+                className="flex items-center gap-2 hover:bg-primary/10 rounded-xl px-2 py-1.5 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+                  {user?.name?.[0] || "U"}
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium">{user?.name || "User"}</div>
+                  <div className="text-[10px] text-muted-foreground">{roleLabels[role] || role}</div>
+                </div>
+              </button>
+              {showUserMenu && (
+                <div className="absolute right-0 top-12 w-56 rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border/30">
+                    <p className="font-semibold text-sm">{user?.name || "Guest User"}</p>
+                    <p className="text-xs text-muted-foreground">{roleLabels[role] || role}</p>
+                  </div>
+                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:bg-primary/5 transition-colors">
+                    <Settings className="w-4 h-4" /> Settings
+                  </button>
+                  <button
+                    onClick={() => { signOut(); navigate('/'); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors border-t border-border/30"
+                  >
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

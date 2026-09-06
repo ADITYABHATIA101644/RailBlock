@@ -14,13 +14,61 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowRight, Loader2, Mail, UserX, Train, Shield } from "lucide-react";
+import { ArrowRight, Loader2, Mail, UserX, Train, Shield, ChevronRight } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 interface AuthProps {
   redirectAfterAuth?: string;
 }
+
+const railwayRoles = [
+  {
+    id: "admin",
+    title: "Divisional Railway Manager",
+    shortTitle: "DRM / Admin",
+    description: "Full system access, override authority, KPI dashboards",
+    icon: Shield,
+    color: "bg-red-500/15 text-red-400 border-red-500/30",
+    permissions: ["All modules", "System config", "Override approvals"],
+  },
+  {
+    id: "approver",
+    title: "Sr. DOM / Section Controller",
+    shortTitle: "Approver",
+    description: "Approve/reject blocks, manage conflicts, view traffic",
+    icon: ChevronRight,
+    color: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    permissions: ["Approve blocks", "Conflict resolution", "Traffic view"],
+  },
+  {
+    id: "planner",
+    title: "Section Engineer / P-Way",
+    shortTitle: "Planner",
+    description: "Create block requests, view AI recommendations, run simulations",
+    icon: Train,
+    color: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    permissions: ["Create blocks", "AI recommendations", "Simulations"],
+  },
+  {
+    id: "field",
+    title: "Field Crew / Gang Supervisor",
+    shortTitle: "Field Crew",
+    description: "Block start/end, GPS tracking, work completion checklists",
+    icon: UserX,
+    color: "bg-green-500/15 text-green-400 border-green-500/30",
+    permissions: ["Block start/end", "GPS tracking", "Checklists"],
+  },
+  {
+    id: "viewer",
+    title: "Safety Officer / Auditor",
+    shortTitle: "Viewer",
+    description: "Read-only access, audit trails, compliance reports",
+    icon: Shield,
+    color: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    permissions: ["Read-only", "Audit trails", "Reports"],
+  },
+];
 
 function resolveRedirectAfterAuth(
   returnTo: string | null,
@@ -40,7 +88,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     searchParams.get("returnTo"),
     redirectAfterAuth,
   );
-  const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
+  const [step, setStep] = useState<"roleSelect" | "signIn" | { email: string }>("roleSelect");
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +100,21 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
 
+  const handleRoleSelect = (roleId: string) => {
+    setSelectedRole(roleId);
+    setStep("signIn");
+  };
+
   const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
       const formData = new FormData(event.currentTarget);
+      // Store selected role in session for RBAC
+      if (selectedRole) {
+        sessionStorage.setItem("railblock_role", selectedRole);
+      }
       await signIn("email-otp", formData);
       setStep({ email: formData.get("email") as string });
       setIsLoading(false);
@@ -87,10 +145,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
-  const handleGuestLogin = async () => {
+  const handleGuestLogin = async (roleId?: string) => {
     setIsLoading(true);
     setError(null);
     try {
+      if (roleId) {
+        sessionStorage.setItem("railblock_role", roleId);
+      }
       await signIn("anonymous");
       navigate(redirect);
     } catch (error) {
@@ -99,6 +160,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setIsLoading(false);
     }
   };
+
+  const selectedRoleData = railwayRoles.find(r => r.id === selectedRole);
 
   return (
     <div className="min-h-screen flex items-center justify-center rail-gradient relative overflow-hidden">
@@ -141,8 +204,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       </div>
 
       {/* Auth Card */}
-      <Card className="min-w-[380px] max-w-[420px] border border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl relative z-10">
-        {step === "signIn" ? (
+      <Card className="min-w-[380px] max-w-[480px] border border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl relative z-10">
+        {/* Step: Role Selection */}
+        {step === "roleSelect" && (
           <>
             <CardHeader className="text-center pt-8">
               <div className="flex justify-center mb-4">
@@ -152,7 +216,71 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               </div>
               <CardTitle className="text-xl font-bold">Welcome to RailBlock AI</CardTitle>
               <CardDescription className="text-muted-foreground">
-                Sign in to access the Block Planning Command Center
+                Select your role to sign in with appropriate permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-6 pb-6">
+              <div className="space-y-2">
+                {railwayRoles.map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => handleRoleSelect(role.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all hover:bg-primary/5 active:scale-[0.98] text-left ${role.color}`}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-background/30 flex items-center justify-center shrink-0">
+                      <role.icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm">{role.shortTitle}</div>
+                      <div className="text-xs opacity-70 truncate">{role.description}</div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 opacity-50 shrink-0" />
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/50" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-3 text-muted-foreground">Quick Access</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mt-4 h-11 border-border/50 bg-background/30 hover:bg-background/50"
+                onClick={() => handleGuestLogin("planner")}
+                disabled={isLoading}
+              >
+                <UserX className="mr-2 h-4 w-4" />
+                Guest Demo (Planner Role)
+              </Button>
+            </CardContent>
+          </>
+        )}
+
+        {/* Step: Email Sign-in */}
+        {step === "signIn" && (
+          <>
+            <CardHeader className="text-center pt-8">
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center animate-pulse-glow">
+                  <Train className="w-8 h-8 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-xl font-bold">Sign In</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                {selectedRoleData ? (
+                  <>
+                    Signing in as{" "}
+                    <span className="font-medium text-foreground">{selectedRoleData.title}</span>
+                  </>
+                ) : (
+                  "Sign in to access the Block Planning Command Center"
+                )}
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleEmailSubmit}>
@@ -200,17 +328,30 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     type="button"
                     variant="outline"
                     className="w-full mt-4 h-11 border-border/50 bg-background/30 hover:bg-background/50"
-                    onClick={handleGuestLogin}
+                    onClick={() => handleGuestLogin(selectedRole || "planner")}
                     disabled={isLoading}
                   >
                     <UserX className="mr-2 h-4 w-4" />
-                    Continue as Guest
+                    Continue as Guest ({selectedRoleData?.shortTitle || "Planner"})
                   </Button>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full mt-3 text-muted-foreground"
+                  onClick={() => { setStep("roleSelect"); setSelectedRole(null); }}
+                  disabled={isLoading}
+                >
+                  ← Choose different role
+                </Button>
               </CardContent>
             </form>
           </>
-        ) : (
+        )}
+
+        {/* Step: OTP Verification */}
+        {typeof step === "object" && (
           <>
             <CardHeader className="text-center pt-8">
               <div className="flex justify-center mb-4">
