@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
 import Sidebar from "@/components/layout/Sidebar";
+import ChatAgent from "@/components/ai/ChatAgent";
 import RailwayMapView from "@/components/dashboard/RailwayMapView";
 import BlockRequestForm from "@/components/dashboard/BlockRequestForm";
 import AIRecommendations from "@/components/dashboard/AIRecommendations";
@@ -191,6 +192,9 @@ export default function Dashboard() {
         {/* Content */}
         <div className="p-6">{renderContent()}</div>
       </main>
+
+      {/* AI Chat Agent */}
+      <ChatAgent />
     </div>
   );
 }
