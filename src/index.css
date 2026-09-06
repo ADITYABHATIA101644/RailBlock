@@ -42,74 +42,74 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* CHANGE VALUES FOR THEME */
+/* RailBlock AI — Railway Command Center Theme */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.985 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.26 0.08 250);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.95 0.01 80);
+  --secondary-foreground: oklch(0.26 0.08 250);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.75 0.15 55);
+  --accent-foreground: oklch(0.15 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: oklch(0.90 0 0);
+  --input: oklch(0.90 0 0);
+  --ring: oklch(0.35 0.12 250);
+  --chart-1: oklch(0.75 0.15 55);
+  --chart-2: oklch(0.55 0.18 250);
+  --chart-3: oklch(0.70 0.12 160);
+  --chart-4: oklch(0.65 0.20 30);
+  --chart-5: oklch(0.60 0.15 280);
+  --sidebar: oklch(0.13 0.03 250);
+  --sidebar-foreground: oklch(0.92 0 0);
+  --sidebar-primary: oklch(0.75 0.15 55);
+  --sidebar-primary-foreground: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.20 0.04 250);
+  --sidebar-accent-foreground: oklch(0.92 0 0);
+  --sidebar-border: oklch(0.25 0.03 250);
+  --sidebar-ring: oklch(0.75 0.15 55);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.10 0.025 250);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.15 0.03 250);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.14 0.03 250);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.75 0.15 55);
+  --primary-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.18 0.03 250);
+  --secondary-foreground: oklch(0.92 0 0);
+  --muted: oklch(0.18 0.03 250);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.75 0.15 55);
+  --accent-foreground: oklch(0.15 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: oklch(0.22 0.03 250);
+  --input: oklch(0.22 0.03 250);
+  --ring: oklch(0.75 0.15 55);
+  --chart-1: oklch(0.75 0.15 55);
+  --chart-2: oklch(0.65 0.18 250);
+  --chart-3: oklch(0.70 0.14 160);
+  --chart-4: oklch(0.65 0.20 30);
+  --chart-5: oklch(0.60 0.15 280);
+  --sidebar: oklch(0.10 0.025 250);
+  --sidebar-foreground: oklch(0.92 0 0);
+  --sidebar-primary: oklch(0.75 0.15 55);
+  --sidebar-primary-foreground: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.18 0.04 250);
+  --sidebar-accent-foreground: oklch(0.92 0 0);
+  --sidebar-border: oklch(0.22 0.03 250);
+  --sidebar-ring: oklch(0.75 0.15 55);
 }
 
 @layer base {
@@ -123,4 +123,151 @@
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
+}
+
+/* RailBlock AI Custom Styles */
+
+/* Force dark mode on body for the app */
+html.dark body,
+html.dark {
+  background-color: oklch(0.10 0.025 250);
+  color: oklch(0.95 0 0);
+}
+
+/* Animated gradient background */
+.rail-gradient {
+  background: linear-gradient(135deg, oklch(0.10 0.025 250) 0%, oklch(0.15 0.05 260) 40%, oklch(0.12 0.04 240) 70%, oklch(0.08 0.03 250) 100%);
+}
+
+.rail-gradient-light {
+  background: linear-gradient(135deg, oklch(0.95 0.01 80) 0%, oklch(0.92 0.02 250) 50%, oklch(0.96 0.01 55) 100%);
+}
+
+/* Floating animation for cards */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-14px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px oklch(0.75 0.15 55 / 0.15); }
+  50% { box-shadow: 0 0 40px oklch(0.75 0.15 55 / 0.3); }
+}
+
+@keyframes train-move {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes signal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes grid-scroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(40px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 8s ease-in-out infinite 2s;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-train-move {
+  animation: train-move 15s linear infinite;
+}
+
+.animate-signal-blink {
+  animation: signal-blink 2s ease-in-out infinite;
+}
+
+.animate-grid-scroll {
+  animation: grid-scroll 4s linear infinite;
+}
+
+/* Glass card effect */
+.glass-card {
+  background: oklch(1 0 0 / 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid oklch(1 0 0 / 0.1);
+}
+
+.glass-card-solid {
+  background: oklch(0.15 0.03 250 / 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid oklch(1 0 0 / 0.1);
+}
+
+/* Glowing border */
+.glow-border {
+  border: 1px solid oklch(0.75 0.15 55 / 0.3);
+  box-shadow: 0 0 15px oklch(0.75 0.15 55 / 0.1), inset 0 0 15px oklch(0.75 0.15 55 / 0.05);
+}
+
+/* Railway track pattern */
+.track-pattern {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 20px,
+      oklch(0.75 0.15 55 / 0.05) 20px,
+      oklch(0.75 0.15 55 / 0.05) 21px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 40px,
+      oklch(0.75 0.15 55 / 0.03) 40px,
+      oklch(0.75 0.15 55 / 0.03) 41px
+    );
+}
+
+/* Status colors */
+.status-approved { color: oklch(0.70 0.16 160); }
+.status-pending { color: oklch(0.75 0.15 55); }
+.status-conflict { color: oklch(0.65 0.22 25); }
+.status-inprogress { color: oklch(0.65 0.18 250); }
+
+/* Leaflet overrides */
+.leaflet-container {
+  background: oklch(0.12 0.02 250) !important;
+  border-radius: 0.75rem;
+}
+.leaflet-control-zoom a {
+  background: oklch(0.18 0.03 250) !important;
+  color: oklch(0.90 0 0) !important;
+  border-color: oklch(0.25 0.03 250) !important;
+}
+.leaflet-tile-pane {
+  filter: brightness(0.7) saturate(0.8) hue-rotate(10deg);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.30 0.03 250);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.40 0.05 250);
 }
