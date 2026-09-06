@@ -6,7 +6,6 @@ import {
   Train,
   Search,
   MapPin,
-  Clock,
   AlertTriangle,
   CheckCircle2,
   Loader2,
@@ -14,19 +13,19 @@ import {
 } from "lucide-react";
 
 const popularStations = [
-  { code: "NDLS", name: "New Delhi" }, { code: "MAS", name: "Chennai Central" },
-  { code: "HWH", name: "Howrah" }, { code: "BCT", name: "Mumbai Central" },
+  { code: "NDLS", name: "New Delhi" }, { code: "MAS", name: "Chennai" },
+  { code: "HWH", name: "Howrah" }, { code: "BCT", name: "Mumbai" },
   { code: "SBC", name: "Bangalore" }, { code: "SC", name: "Secunderabad" },
   { code: "BPL", name: "Bhopal" }, { code: "PNBE", name: "Patna" },
   { code: "LKO", name: "Lucknow" }, { code: "ADI", name: "Ahmedabad" },
   { code: "JP", name: "Jaipur" }, { code: "NGP", name: "Nagpur" },
-  { code: "MFP", name: "Muzaffarpur" }, { code: "GKP", name: "Gorakhpur" },
-  { code: "CNB", name: "Kanpur Central" }, { code: "JAT", name: "Jammu Tawi" },
-  { code: "KOAA", name: "Kolkata" }, { code: "PURI", name: "Puri" },
-  { code: "GHY", name: "Guwahati" }, { code: "TVC", name: "Trivandrum" },
+  { code: "GKP", name: "Gorakhpur" }, { code: "CNB", name: "Kanpur" },
+  { code: "JAT", name: "Jammu" }, { code: "GHY", name: "Guwahati" },
+  { code: "PURI", name: "Puri" }, { code: "TVC", name: "Trivandrum" },
+  { code: "MFP", name: "Muzaffarpur" }, { code: "KRBA", name: "Raipur" },
 ];
 
-const demoTrains = [
+const DEMO_TRAINS = [
   { number: "12951", name: "Mumbai Rajdhani", source: "NDLS", destination: "BCT", delay: "RT", status: "running", currentStation: "Vadodara", speed: "130 km/h" },
   { number: "12002", name: "Bhopal Shatabdi", source: "NDLS", destination: "BPL", delay: "15 M", status: "running", currentStation: "Agra Cantt", speed: "145 km/h" },
   { number: "12260", name: "Swarna Jayanti", source: "NDLS", destination: "SDAH", delay: "25 M", status: "running", currentStation: "Prayagraj", speed: "110 km/h" },
@@ -37,6 +36,11 @@ const demoTrains = [
   { number: "12313", name: "Sealdah Rajdhani", source: "SDAH", destination: "NDLS", delay: "RT", status: "running", currentStation: "Patna", speed: "135 km/h" },
   { number: "12802", name: "Puri Rajdhani", source: "PURI", destination: "NDLS", delay: "35 M", status: "delayed", currentStation: "Rourkela", speed: "105 km/h" },
   { number: "12434", name: "Chennai Rajdhani", source: "MAS", destination: "NDLS", delay: "RT", status: "running", currentStation: "Balharshah", speed: "128 km/h" },
+  { number: "15909", name: "Avadh Assam Express", source: "DBRG", destination: "LGH", delay: "17 M", status: "running", currentStation: "New Jalpaiguri", speed: "95 km/h" },
+  { number: "12561", name: "Swatantrta Senani", source: "JYG", destination: "NDLS", delay: "RT", status: "running", currentStation: "Sonpur", speed: "110 km/h" },
+  { number: "13020", name: "Bagh Express", source: "KGM", destination: "HWH", delay: "RT", status: "running", currentStation: "Lucknow", speed: "85 km/h" },
+  { number: "12311", name: "Howrah Rajdhani", source: "HWH", destination: "NDLS", delay: "28 M", status: "delayed", currentStation: "Dhanbad", speed: "130 km/h" },
+  { number: "12259", name: "Sealdah Rajdhani", source: "SDAH", destination: "NDLS", delay: "RT", status: "running", currentStation: "Gaya", speed: "125 km/h" },
 ];
 
 function parseDelay(delayStr: string): number {
@@ -52,7 +56,7 @@ export default function LiveTrainsPanel() {
   const [liveData, setLiveData] = useState<any[] | null>(null);
   const [trainDetail, setTrainDetail] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [useLiveData, setUseLiveData] = useState(false);
+  const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
 
   const fetchLiveTrain = useAction(api.trainData.getLiveTrain);
   const fetchLiveStation = useAction(api.trainData.getLiveStation);
@@ -65,39 +69,43 @@ export default function LiveTrainsPanel() {
         const data = await fetchLiveTrain({ trainNumber: searchQuery.trim() }) as any;
         setTrainDetail({ number: data.trainNumber || searchQuery.trim(), route: data.route || [] });
         setLiveData(null);
-        setUseLiveData(true);
+        setDataSource("live");
       } else {
         const data = await fetchLiveStation({ stationCode: searchQuery.trim().toUpperCase() }) as any;
         setLiveData(Array.isArray(data) ? data : []);
         setTrainDetail(null);
-        setUseLiveData(true);
+        setDataSource("live");
       }
     } catch (error) {
-      console.warn("Live API unavailable:", error);
-      toast.error("Live API unavailable", {
-        description: error instanceof Error ? error.message : "Check API key or try again.",
-      });
-      // Fall back to demo data
+      // Always show demo data as fallback
       if (searchMode === "train") {
-        const demo = demoTrains.find((t) => t.number === searchQuery.trim());
+        const demo = DEMO_TRAINS.find((t) => t.number === searchQuery.trim());
         if (demo) {
           setTrainDetail({
             number: demo.number,
+            name: demo.name,
             route: [
               { station: demo.source, code: demo.source, scheduledArrival: "Source", actualArrival: "Source", delay: "-", scheduledDeparture: "08:00 AM", actualDeparture: "08:00 AM", delayDeparture: "00 M" },
-              { station: demo.currentStation, code: "---", scheduledArrival: "12:00 PM", actualArrival: "12:" + String(parseDelay(demo.delay)).padStart(2, "0") + " PM", delay: demo.delay, scheduledDeparture: "12:05 PM", actualDeparture: "12:" + String(parseDelay(demo.delay) + 5).padStart(2, "0") + " PM", delayDeparture: demo.delay },
-              { station: demo.destination, code: demo.destination, scheduledArrival: "06:00 PM", actualArrival: "06:" + String(parseDelay(demo.delay)).padStart(2, "0") + " PM", delay: demo.delay, scheduledDeparture: "Destination", actualDeparture: "Destination", delayDeparture: "-" },
+              { station: demo.currentStation, code: "---", scheduledArrival: "12:00 PM", actualArrival: "12:" + String(Math.min(parseDelay(demo.delay), 59)).padStart(2, "0") + " PM", delay: demo.delay, scheduledDeparture: "12:05 PM", actualDeparture: "12:" + String(Math.min(parseDelay(demo.delay) + 5, 59)).padStart(2, "0") + " PM", delayDeparture: demo.delay },
+              { station: demo.destination, code: demo.destination, scheduledArrival: "06:00 PM", actualArrival: "06:" + String(Math.min(parseDelay(demo.delay), 59)).padStart(2, "0") + " PM", delay: demo.delay, scheduledDeparture: "Destination", actualDeparture: "Destination", delayDeparture: "-" },
             ],
           });
+          setDataSource("demo");
+        } else {
+          toast.info(`Train ${searchQuery} not found in demo data. Showing available trains below.`);
         }
+      } else {
+        toast.error("Live station data unavailable", {
+          description: error instanceof Error ? error.message : "Using demo data.",
+        });
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const displayTrains = useLiveData ? (liveData || []) : demoTrains;
-  const hasLiveData = useLiveData && liveData;
+  const displayTrains = liveData && liveData.length > 0 ? liveData : DEMO_TRAINS;
+  const hasLiveData = dataSource === "live" && liveData && liveData.length > 0;
 
   return (
     <div className="space-y-6">
@@ -129,16 +137,16 @@ export default function LiveTrainsPanel() {
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          {useLiveData ? (
+          {dataSource === "live" ? (
             <>
               <Radio className="w-3 h-3 text-chart-3 animate-pulse" />
-              <span className="text-chart-3 font-medium">Live data from Indian Railways API</span>
-              <button onClick={() => setUseLiveData(false)} className="ml-auto text-muted-foreground hover:text-foreground">Switch to demo</button>
+              <span className="text-chart-3 font-medium">Live data from Indian Railways</span>
+              <button onClick={() => { setDataSource("demo"); setLiveData(null); setTrainDetail(null); }} className="ml-auto text-muted-foreground hover:text-foreground">Switch to demo</button>
             </>
           ) : (
             <>
               <div className="w-3 h-3 rounded-full bg-chart-4/50" />
-              <span className="text-chart-4 font-medium">Demo data — search any train number for live data</span>
+              <span className="text-chart-4 font-medium">Demo data — search any train for live data</span>
             </>
           )}
         </div>
@@ -150,8 +158,8 @@ export default function LiveTrainsPanel() {
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center"><Train className="w-5 h-5 text-primary" /></div>
             <div>
-              <h3 className="font-semibold">Train #{trainDetail.number}</h3>
-              <p className="text-xs text-muted-foreground">Live route with delays</p>
+              <h3 className="font-semibold">Train #{trainDetail.number}{trainDetail.name ? ` — ${trainDetail.name}` : ""}</h3>
+              <p className="text-xs text-muted-foreground">{dataSource === "live" ? "Live route with real delays" : "Demo route data"}</p>
             </div>
             <button onClick={() => setTrainDetail(null)} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Close</button>
           </div>
@@ -264,7 +272,7 @@ export default function LiveTrainsPanel() {
         </div>
       )}
 
-      {/* Demo trains */}
+      {/* Demo trains table — always visible as fallback */}
       {!hasLiveData && !trainDetail && (
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
           <div className="px-5 py-4 border-b border-border/30 flex items-center justify-between">
@@ -272,7 +280,7 @@ export default function LiveTrainsPanel() {
               <Train className="w-4 h-4 text-primary" />
               <h3 className="font-semibold">Trains Across India</h3>
             </div>
-            <span className="text-xs text-muted-foreground">{demoTrains.length} trains showing</span>
+            <span className="text-xs text-muted-foreground">{DEMO_TRAINS.length} trains</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -287,7 +295,7 @@ export default function LiveTrainsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {demoTrains.map((train, i) => {
+                {DEMO_TRAINS.map((train, i) => {
                   const delay = parseDelay(train.delay);
                   return (
                     <tr key={i} className="border-b border-border/20 hover:bg-primary/5 cursor-pointer"

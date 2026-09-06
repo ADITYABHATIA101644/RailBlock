@@ -1,26 +1,23 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { toast } from "sonner";
 import {
   MapContainer,
   TileLayer,
   CircleMarker,
-  Popup,
   Tooltip,
   Polyline,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   Train,
-  AlertTriangle,
-  CheckCircle2,
   Radio,
   Loader2,
   MapPin,
 } from "lucide-react";
 import { MAJOR_STATIONS, ZONES, ZONE_COLORS } from "@/data/railwayNetwork";
 
-/* Key corridors for railway lines */
 const KEY_CORRIDORS: { name: string; stations: string[]; color: string }[] = [
   { name: "Delhi–Chennai Grand Trunk", stations: ["NDLS", "AGC", "JHS", "BPL", "NGP", "SC", "MAS"], color: "oklch(0.75 0.15 55)" },
   { name: "Delhi–Howrah", stations: ["NDLS", "CNB", "PRYJ", "MFP", "PNBE", "HWH"], color: "oklch(0.65 0.18 250)" },
@@ -36,8 +33,7 @@ const KEY_CORRIDORS: { name: string; stations: string[]; color: string }[] = [
   { name: "Kolkata–Guwahati", stations: ["HWH", "MLDT", "GHY"], color: "oklch(0.60 0.15 280 / 0.7)" },
 ];
 
-/* Demo live trains */
-const demoTrains = [
+const DEMO_TRAINS = [
   { number: "12951", name: "Mumbai Rajdhani", lat: 23.50, lng: 76.80, speed: 130 },
   { number: "12301", name: "Howrah Rajdhani", lat: 25.80, lng: 84.50, speed: 120 },
   { number: "12002", name: "Bhopal Shatabdi", lat: 27.20, lng: 78.00, speed: 145 },
@@ -55,8 +51,9 @@ export default function RailwayMapView() {
   const [showTrains, setShowTrains] = useState(true);
   const [showStations, setShowStations] = useState(true);
   const [showCorridors, setShowCorridors] = useState(true);
-  const [liveTrains, setLiveTrains] = useState(demoTrains);
+  const [liveTrains, setLiveTrains] = useState(DEMO_TRAINS);
   const [isLoadingTrains, setIsLoadingTrains] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<"demo" | "live">("demo");
 
   const fetchLiveStation = useAction(api.trainData.getLiveStation);
 
@@ -64,23 +61,27 @@ export default function RailwayMapView() {
     setIsLoadingTrains(true);
     try {
       const data = await fetchLiveStation({ stationCode: "NDLS" }) as { number: string; name: string; delay: string }[];
-      const trains = data.slice(0, 10).map((t, i) => ({
-        number: t.number,
-        name: t.name,
-        lat: 28.64 + (i * 0.5 - 2.5),
-        lng: 77.22 + (i * 0.3 - 1.5),
-        speed: Math.floor(Math.random() * 60 + 80),
-        delay: t.delay,
-      }));
-      if (trains.length > 0) setLiveTrains(trains);
-    } catch {
-      // Keep demo trains
+      if (Array.isArray(data) && data.length > 0) {
+        const trains = data.slice(0, 10).map((t, i) => ({
+          number: t.number,
+          name: t.name,
+          lat: 28.64 + (i * 0.5 - 2.5),
+          lng: 77.22 + (i * 0.3 - 1.5),
+          speed: Math.floor(Math.random() * 60 + 80),
+        }));
+        setLiveTrains(trains);
+        setLiveStatus("live");
+        toast.success(`Loaded ${trains.length} live trains from Indian Railways`);
+      }
+    } catch (error) {
+      toast.error("Could not load live trains", {
+        description: error instanceof Error ? error.message : "Using demo data instead.",
+      });
     }
     setIsLoadingTrains(false);
   };
 
   const center: [number, number] = [22.5, 80.0];
-
   const getStationByCode = (code: string) => MAJOR_STATIONS.find((s) => s.code === code);
 
   return (
@@ -106,8 +107,13 @@ export default function RailwayMapView() {
           {isLoadingTrains ? "Loading..." : "Load Live Trains"}
         </button>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <Radio className="w-3 h-3 text-chart-3 animate-pulse" />
-          {MAJOR_STATIONS.length} stations • {ZONES.length} zones • {KEY_CORRIDORS.length} corridors
+          {liveStatus === "live" ? (
+            <><Radio className="w-3 h-3 text-chart-3 animate-pulse" /><span className="text-chart-3 font-medium">Live data</span></>
+          ) : (
+            <><div className="w-3 h-3 rounded-full bg-chart-4/50" /><span className="text-chart-4">Demo trains</span></>
+          )}
+          <span className="mx-1">•</span>
+          {MAJOR_STATIONS.length} stations • {ZONES.length} zones
         </div>
       </div>
 
@@ -116,16 +122,12 @@ export default function RailwayMapView() {
         <MapContainer center={center} zoom={5} className="w-full h-full" zoomControl={true}>
           <TileLayer attribution='&copy; <a href="https://carto.com/">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
-          {/* Railway corridors */}
           {showCorridors && KEY_CORRIDORS.map((corridor, ci) => {
             const points = corridor.stations.map((code) => getStationByCode(code)).filter(Boolean).map((s) => [s!.lat, s!.lng] as [number, number]);
             if (points.length < 2) return null;
-            return (
-              <Polyline key={ci} positions={points} pathOptions={{ color: corridor.color, weight: 3, opacity: 0.7 }} />
-            );
+            return <Polyline key={ci} positions={points} pathOptions={{ color: corridor.color, weight: 3, opacity: 0.7 }} />;
           })}
 
-          {/* Stations */}
           {showStations && MAJOR_STATIONS.map((station) => {
             const zoneColor = ZONE_COLORS[station.zone] || "#ffffff";
             return (
@@ -141,13 +143,12 @@ export default function RailwayMapView() {
             );
           })}
 
-          {/* Live trains */}
           {showTrains && liveTrains.map((train, i) => (
             <CircleMarker key={`train-${i}`} center={[train.lat, train.lng]} radius={7}
               fillColor="oklch(0.65 0.18 250)" fillOpacity={1} color="oklch(0.65 0.18 250)" weight={2}>
               <Tooltip direction="top" offset={[0, -10]} className="!bg-card !border-border/50 !text-foreground !rounded-xl !shadow-lg">
                 <div className="text-sm font-semibold">{train.number} — {train.name}</div>
-                <div className="text-xs text-muted-foreground">{train.speed} km/h{('delay' in train) ? ` • ${(train as {delay: string}).delay}` : ""}</div>
+                <div className="text-xs text-muted-foreground">{train.speed} km/h</div>
               </Tooltip>
             </CircleMarker>
           ))}
@@ -164,10 +165,7 @@ export default function RailwayMapView() {
           {ZONES.map((zone) => (
             <button key={zone.code} onClick={() => setSelectedZone(selectedZone === zone.code ? null : zone.code)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedZone === zone.code ? "text-white" : "text-muted-foreground hover:text-foreground"}`}
-              style={{
-                background: selectedZone === zone.code ? ZONE_COLORS[zone.code] : "transparent",
-                borderColor: ZONE_COLORS[zone.code] + "40",
-              }}>
+              style={{ background: selectedZone === zone.code ? ZONE_COLORS[zone.code] : "transparent", borderColor: ZONE_COLORS[zone.code] + "40" }}>
               <span className="w-2 h-2 rounded-full inline-block mr-1.5" style={{ background: ZONE_COLORS[zone.code] }} />
               {zone.code} — {zone.name.split(" ").slice(0, 2).join(" ")}
             </button>
