@@ -1,9 +1,9 @@
+import { useState } from "react";
+import { toast } from "sonner";
 import {
-  BarChart3,
-  TrendingUp,
   Download,
   Calendar,
-  Filter,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -48,13 +48,13 @@ const monthlyTrend = [
 ];
 
 const assetHealthHeatmap = [
-  { zone: "Delhi", health: 88 },
-  { zone: "Agra", health: 72 },
-  { zone: "Lucknow", health: 81 },
-  { zone: "Jaipur", health: 68 },
-  { zone: "Jhansi", health: 75 },
-  { zone: "Ambala", health: 85 },
-  { zone: "Firozpur", health: 79 },
+  { zone: "Delhi", health: 88, assets: 156, critical: 2, pending: 5 },
+  { zone: "Agra", health: 72, assets: 124, critical: 8, pending: 12 },
+  { zone: "Lucknow", health: 81, assets: 98, critical: 3, pending: 7 },
+  { zone: "Jaipur", health: 68, assets: 142, critical: 11, pending: 15 },
+  { zone: "Jhansi", health: 75, assets: 87, critical: 5, pending: 9 },
+  { zone: "Ambala", health: 85, assets: 113, critical: 1, pending: 4 },
+  { zone: "Firozpur", health: 79, assets: 76, critical: 4, pending: 6 },
 ];
 
 const departmentPerformance = [
@@ -84,20 +84,56 @@ const delayByType = [
 
 const pieColors = ["oklch(0.75 0.15 55)", "oklch(0.65 0.18 250)", "oklch(0.70 0.14 160)", "oklch(0.65 0.22 25)", "oklch(0.50 0.10 280)"];
 
+const months = ["Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026", "Jul 2026", "Aug 2026"];
+
 export default function AnalyticsDashboard() {
+  const [selectedMonth, setSelectedMonth] = useState("Aug 2026");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedZone, setSelectedZone] = useState<typeof assetHealthHeatmap[number] | null>(null);
+
+  const handleExportPdf = () => {
+    toast.success("Report exported successfully", {
+      description: `Analytics report for ${selectedMonth} — Delhi Division has been generated.`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">Delhi Division — Analytics</h2>
-          <p className="text-sm text-muted-foreground">August 2026 performance overview</p>
+          <p className="text-sm text-muted-foreground">{selectedMonth} performance overview</p>
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all">
-            <Calendar className="w-4 h-4" /> Aug 2026
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all">
+        <div className="flex gap-2 relative">
+          {/* Date Picker */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all"
+            >
+              <Calendar className="w-4 h-4" /> {selectedMonth}
+            </button>
+            {showDatePicker && (
+              <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border/50 bg-card shadow-xl z-10 p-2">
+                {months.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setSelectedMonth(m); setShowDatePicker(false); toast.info(`Viewing analytics for ${m}`); }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                      selectedMonth === m ? "bg-primary text-primary-foreground font-medium" : "hover:bg-primary/10 text-muted-foreground"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95"
+          >
             <Download className="w-4 h-4" /> Export PDF
           </button>
         </div>
@@ -265,12 +301,16 @@ export default function AnalyticsDashboard() {
       {/* Asset Health Heatmap */}
       <div className="rounded-2xl p-6 border border-border/50 bg-card">
         <h3 className="font-semibold mb-1">Asset Health by Zone</h3>
-        <p className="text-xs text-muted-foreground mb-4">Health score distribution across zones</p>
+        <p className="text-xs text-muted-foreground mb-4">Click a zone to view details</p>
         <div className="grid grid-cols-7 gap-3">
           {assetHealthHeatmap.map((zone, i) => (
-            <div key={i} className="text-center">
+            <button
+              key={i}
+              onClick={() => setSelectedZone(selectedZone?.zone === zone.zone ? null : zone)}
+              className="text-center group"
+            >
               <div
-                className="w-full aspect-square rounded-2xl flex items-center justify-center text-lg font-bold mb-2 transition-all hover:scale-105"
+                className="w-full aspect-square rounded-2xl flex items-center justify-center text-lg font-bold mb-2 transition-all group-hover:scale-105 group-hover:shadow-lg"
                 style={{
                   background:
                     zone.health > 80
@@ -284,14 +324,45 @@ export default function AnalyticsDashboard() {
                       : zone.health > 70
                       ? "oklch(0.75 0.15 55)"
                       : "oklch(0.65 0.22 25)",
+                  border: selectedZone?.zone === zone.zone ? "2px solid oklch(0.75 0.15 55)" : "2px solid transparent",
                 }}
               >
                 {zone.health}
               </div>
               <div className="text-xs font-medium">{zone.zone}</div>
-            </div>
+            </button>
           ))}
         </div>
+
+        {/* Zone Detail Panel */}
+        {selectedZone && (
+          <div className="mt-4 p-5 rounded-xl border border-primary/30 bg-primary/5 animate-in slide-in-from-bottom-2 duration-200">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold">{selectedZone.zone} Zone — Asset Details</h4>
+              <button onClick={() => setSelectedZone(null)} className="w-7 h-7 rounded-lg hover:bg-primary/10 flex items-center justify-center">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+                <div className="text-2xl font-bold">{selectedZone.health}</div>
+                <div className="text-xs text-muted-foreground">Health Score</div>
+              </div>
+              <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+                <div className="text-2xl font-bold">{selectedZone.assets}</div>
+                <div className="text-xs text-muted-foreground">Total Assets</div>
+              </div>
+              <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+                <div className="text-2xl font-bold text-destructive">{selectedZone.critical}</div>
+                <div className="text-xs text-muted-foreground">Critical</div>
+              </div>
+              <div className="p-3 rounded-xl bg-card border border-border/50 text-center">
+                <div className="text-2xl font-bold text-chart-4">{selectedZone.pending}</div>
+                <div className="text-xs text-muted-foreground">Pending Maintenance</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

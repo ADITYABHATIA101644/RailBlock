@@ -1,8 +1,7 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import {
-  Train,
   Zap,
-  AlertTriangle,
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
@@ -11,7 +10,6 @@ import {
   MapPin,
   Wrench,
   Users,
-  FileText,
 } from "lucide-react";
 
 const sections = [
@@ -41,18 +39,21 @@ const blockTypes = [
   { id: "short", label: "Short Duration", desc: "Under 60 minutes, limited scope" },
 ];
 
+const defaultForm = {
+  section: "",
+  workType: "",
+  blockType: "full",
+  duration: "3",
+  urgency: "medium",
+  crewSize: "12",
+  reason: "",
+};
+
 export default function BlockRequestForm() {
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({
-    section: "",
-    workType: "",
-    blockType: "full",
-    duration: "3",
-    urgency: "medium",
-    crewSize: "12",
-    reason: "",
-  });
+  const [form, setForm] = useState(defaultForm);
   const [aiSuggested, setAiSuggested] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const steps = [
     { label: "Section & Type", icon: MapPin },
@@ -71,6 +72,73 @@ export default function BlockRequestForm() {
       reason: "AI detected rail fatigue approaching threshold (score: 62/100) — TRC data indicates lateral displacement exceeding limits at KM 168. Recommended immediate block to prevent potential derailment risk.",
     }));
   };
+
+  const canAdvance = () => {
+    if (step === 0) return form.section !== "";
+    if (step === 1) return form.workType !== "";
+    if (step === 2) return true; // AI step is optional
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!canAdvance()) {
+      if (step === 0) toast.warning("Please select a railway section first");
+      if (step === 1) toast.warning("Please select a work type first");
+      return;
+    }
+    setStep((s) => Math.min(3, s + 1));
+  };
+
+  const handleSubmit = () => {
+    const blockId = `BLK-2024-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    setSubmitted(true);
+    toast.success(`Block request ${blockId} submitted!`, {
+      description: `${form.section} — ${form.workType}. Sent for approval.`,
+    });
+  };
+
+  const handleReset = () => {
+    setStep(0);
+    setForm(defaultForm);
+    setAiSuggested(false);
+    setSubmitted(false);
+  };
+
+  if (submitted) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="rounded-2xl p-12 border border-chart-3/30 bg-chart-3/5 text-center">
+          <div className="w-20 h-20 rounded-3xl bg-chart-3/15 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10 text-chart-3" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Block Request Submitted!</h2>
+          <p className="text-muted-foreground max-w-md mx-auto mb-6">
+            Your request for <strong>{form.section}</strong> has been submitted for approval. You&apos;ll receive a notification once it&apos;s reviewed.
+          </p>
+          <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto mb-8">
+            <div className="p-3 rounded-xl bg-card border border-border/50">
+              <div className="text-xs text-muted-foreground">Section</div>
+              <div className="text-sm font-medium mt-0.5">{form.section.split(" (")[0]}</div>
+            </div>
+            <div className="p-3 rounded-xl bg-card border border-border/50">
+              <div className="text-xs text-muted-foreground">Work Type</div>
+              <div className="text-sm font-medium mt-0.5">{form.workType}</div>
+            </div>
+            <div className="p-3 rounded-xl bg-card border border-border/50">
+              <div className="text-xs text-muted-foreground">Duration</div>
+              <div className="text-sm font-medium mt-0.5">{aiSuggested ? "2h 45m (AI)" : `${form.duration}h`}</div>
+            </div>
+          </div>
+          <button
+            onClick={handleReset}
+            className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all"
+          >
+            Create Another Request
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -294,7 +362,7 @@ export default function BlockRequestForm() {
                   { label: "Work Type", value: form.workType || "Not selected" },
                   { label: "Block Type", value: blockTypes.find((b) => b.id === form.blockType)?.label || "" },
                   { label: "Estimated Duration", value: aiSuggested ? "2h 45m (AI)" : `${form.duration} hours` },
-                  { label: "Urgency", value: form.urgency },
+                  { label: "Urgency", value: aiSuggested ? "high (AI)" : form.urgency },
                   { label: "Crew Size", value: aiSuggested ? "8 (AI recommended)" : form.crewSize },
                 ].map((item, i) => (
                   <div key={i} className="bg-card p-4">
@@ -334,13 +402,20 @@ export default function BlockRequestForm() {
         </button>
         {step < 3 ? (
           <button
-            onClick={() => setStep(Math.min(3, step + 1))}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+            onClick={handleNext}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              canAdvance()
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-primary/20 text-primary/50 cursor-not-allowed"
+            }`}
           >
             Next <ChevronRight className="w-4 h-4" />
           </button>
         ) : (
-          <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-chart-3 text-white hover:bg-chart-3/90 transition-all">
+          <button
+            onClick={handleSubmit}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-chart-3 text-white hover:bg-chart-3/90 transition-all active:scale-95"
+          >
             <CheckCircle2 className="w-4 h-4" /> Submit Block Request
           </button>
         )}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Shield,
   Clock,
@@ -7,12 +8,30 @@ import {
   XCircle,
   ChevronRight,
   User,
-  FileText,
   Timer,
   Eye,
 } from "lucide-react";
 
-const pendingApprovals = [
+type ApprovalStatus = "pending" | "approved" | "rejected" | "escalated";
+
+interface Approval {
+  id: string;
+  section: string;
+  dept: string;
+  workType: string;
+  requestedBy: string;
+  urgency: "high" | "medium" | "low";
+  slaDeadline: string;
+  slaProgress: number;
+  aiRecommended: boolean;
+  aiScore: number;
+  submittedAt: string;
+  duration: string;
+  window: string;
+  status: ApprovalStatus;
+}
+
+const initialApprovals: Approval[] = [
   {
     id: "BLK-2024-0849",
     section: "Agra Cantt (KM 178-182)",
@@ -27,6 +46,7 @@ const pendingApprovals = [
     submittedAt: "Today, 18:45",
     duration: "3 hours",
     window: "23:00 – 02:00",
+    status: "pending",
   },
   {
     id: "BLK-2024-0850",
@@ -42,6 +62,7 @@ const pendingApprovals = [
     submittedAt: "Today, 15:20",
     duration: "4 hours",
     window: "00:00 – 04:00",
+    status: "pending",
   },
   {
     id: "BLK-2024-0851",
@@ -57,6 +78,7 @@ const pendingApprovals = [
     submittedAt: "Today, 14:00",
     duration: "3 hours",
     window: "03:00 – 06:00",
+    status: "pending",
   },
   {
     id: "BLK-2024-0852",
@@ -72,12 +94,8 @@ const pendingApprovals = [
     submittedAt: "Today, 19:15",
     duration: "2 hours",
     window: "22:00 – 00:00",
+    status: "pending",
   },
-];
-
-const approvedHistory = [
-  { id: "BLK-0847", section: "Delhi → Nizamuddin", approvedBy: "Sr. DOM", time: "Today, 16:30" },
-  { id: "BLK-0843", section: "Agra → Mathura", approvedBy: "DOM", time: "Today, 10:00" },
 ];
 
 const urgencyColors: Record<string, string> = {
@@ -87,26 +105,69 @@ const urgencyColors: Record<string, string> = {
 };
 
 export default function ApprovalInbox() {
+  const [approvals, setApprovals] = useState<Approval[]>(initialApprovals);
+  const [approvedHistory, setApprovedHistory] = useState([
+    { id: "BLK-0847", section: "Delhi → Nizamuddin", approvedBy: "Sr. DOM", time: "Today, 16:30" },
+    { id: "BLK-0843", section: "Agra → Mathura", approvedBy: "DOM", time: "Today, 10:00" },
+  ]);
   const [expandedApproval, setExpandedApproval] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "urgent" | "ai-recommended">("all");
 
-  const filtered = pendingApprovals.filter((a) => {
+  const pendingCount = approvals.filter((a) => a.status === "pending").length;
+  const urgentCount = approvals.filter((a) => a.status === "pending" && a.urgency === "high").length;
+  const approvedTodayCount = approvedHistory.length;
+
+  const filtered = approvals.filter((a) => {
+    if (a.status !== "pending") return false;
     if (filter === "urgent") return a.urgency === "high";
     if (filter === "ai-recommended") return a.aiRecommended;
     return true;
   });
+
+  const handleApprove = (id: string) => {
+    const block = approvals.find((a) => a.id === id);
+    if (!block) return;
+
+    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "approved" as const } : a)));
+    setApprovedHistory((prev) => [
+      { id: id.replace("BLK-2024-", "BLK-"), section: block.section.split(" (")[0], approvedBy: "You (Sr. DOM)", time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+      ...prev,
+    ]);
+    setExpandedApproval(null);
+    toast.success(`Block ${id} approved`, {
+      description: `${block.section} — ${block.dept}. Field crew has been notified.`,
+    });
+  };
+
+  const handleReject = (id: string) => {
+    const block = approvals.find((a) => a.id === id);
+    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "rejected" as const } : a)));
+    setExpandedApproval(null);
+    toast.error(`Block ${id} rejected`, {
+      description: block ? `${block.section} — Requester ${block.requestedBy} will be notified.` : undefined,
+    });
+  };
+
+  const handleEscalate = (id: string) => {
+    const block = approvals.find((a) => a.id === id);
+    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "escalated" as const } : a)));
+    setExpandedApproval(null);
+    toast.info(`Block ${id} escalated`, {
+      description: block ? `Escalated to DRM for ${block.section}. SLA timer paused.` : undefined,
+    });
+  };
 
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Pending", value: "4", color: "text-chart-4", bg: "bg-chart-4/10" },
-          { label: "Urgent", value: "2", color: "text-destructive", bg: "bg-destructive/10" },
-          { label: "Approved Today", value: "8", color: "text-chart-3", bg: "bg-chart-3/10" },
+          { label: "Pending", value: pendingCount.toString(), color: "text-chart-4", bg: "bg-chart-4/10" },
+          { label: "Urgent", value: urgentCount.toString(), color: "text-destructive", bg: "bg-destructive/10" },
+          { label: "Approved Today", value: approvedTodayCount.toString(), color: "text-chart-3", bg: "bg-chart-3/10" },
           { label: "Avg SLA", value: "3.2h", color: "text-primary", bg: "bg-primary/10" },
         ].map((stat, i) => (
-          <div key={i} className={`rounded-2xl p-4 border border-border/50 bg-card`}>
+          <div key={i} className="rounded-2xl p-4 border border-border/50 bg-card">
             <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-2`}>
               <Shield className={`w-5 h-5 ${stat.color}`} />
             </div>
@@ -139,6 +200,13 @@ export default function ApprovalInbox() {
 
       {/* Approval list */}
       <div className="space-y-3">
+        {filtered.length === 0 && (
+          <div className="rounded-2xl p-8 border border-border/50 bg-card text-center">
+            <CheckCircle2 className="w-10 h-10 text-chart-3 mx-auto mb-3" />
+            <p className="text-sm font-medium text-foreground">All caught up!</p>
+            <p className="text-xs text-muted-foreground mt-1">No pending approvals match this filter.</p>
+          </div>
+        )}
         {filtered.map((approval) => (
           <div
             key={approval.id}
@@ -217,16 +285,28 @@ export default function ApprovalInbox() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-3">
-                  <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-chart-3 text-white text-sm font-semibold hover:bg-chart-3/90 transition-all">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleApprove(approval.id); }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-chart-3 text-white text-sm font-semibold hover:bg-chart-3/90 transition-all active:scale-95"
+                  >
                     <CheckCircle2 className="w-4 h-4" /> Approve
                   </button>
-                  <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-all">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleReject(approval.id); }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-all active:scale-95"
+                  >
                     <XCircle className="w-4 h-4" /> Reject
                   </button>
-                  <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toast.info("Full details viewer — coming soon"); }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95"
+                  >
                     <Eye className="w-4 h-4" /> View Full Details
                   </button>
-                  <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleEscalate(approval.id); }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95"
+                  >
                     <User className="w-4 h-4" /> Escalate
                   </button>
                 </div>
