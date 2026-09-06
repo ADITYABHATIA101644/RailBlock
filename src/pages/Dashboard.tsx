@@ -10,6 +10,7 @@ import SimulationView from "@/components/dashboard/SimulationView";
 import ApprovalInbox from "@/components/dashboard/ApprovalInbox";
 import AnalyticsDashboard from "@/components/dashboard/AnalyticsDashboard";
 import AssetHealthView from "@/components/dashboard/AssetHealthView";
+import LiveTrainsPanel from "@/components/dashboard/LiveTrainsPanel";
 import {
   TrendingUp,
   Plus,
@@ -139,6 +140,8 @@ export default function Dashboard() {
 
   const renderContent = () => {
     switch (path) {
+      case "/dashboard/live-trains":
+        return <LiveTrainsPanel />;
       case "/dashboard/map":
         return <RailwayMapView />;
       case "/dashboard/new-block":
@@ -201,6 +204,7 @@ export default function Dashboard() {
 
 function getPageTitle(path: string) {
   const titles: Record<string, string> = {
+    "/dashboard/live-trains": "Live Trains — Indian Railways",
     "/dashboard/map": "GIS Map View",
     "/dashboard/new-block": "New Block Request",
     "/dashboard/recommendations": "AI Recommendations",

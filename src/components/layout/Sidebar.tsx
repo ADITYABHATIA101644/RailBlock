@@ -9,6 +9,7 @@ import {
   Shield,
   BarChart3,
   Heart,
+  Radio,
   Settings,
   ChevronLeft,
   LogOut,
@@ -17,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: Radio, label: "Live Trains", path: "/dashboard/live-trains" },
   { icon: Map, label: "GIS Map View", path: "/dashboard/map" },
   { icon: Plus, label: "New Block Request", path: "/dashboard/new-block" },
   { icon: GitBranch, label: "AI Recommendations", path: "/dashboard/recommendations" },
