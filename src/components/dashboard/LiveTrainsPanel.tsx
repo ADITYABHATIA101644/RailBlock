@@ -10,19 +10,30 @@ import {
   CheckCircle2,
   Loader2,
   Radio,
+  RefreshCw,
 } from "lucide-react";
 
 const popularStations = [
-  { code: "NDLS", name: "New Delhi" }, { code: "MAS", name: "Chennai" },
-  { code: "HWH", name: "Howrah" }, { code: "BCT", name: "Mumbai" },
-  { code: "SBC", name: "Bangalore" }, { code: "SC", name: "Secunderabad" },
-  { code: "BPL", name: "Bhopal" }, { code: "PNBE", name: "Patna" },
-  { code: "LKO", name: "Lucknow" }, { code: "ADI", name: "Ahmedabad" },
-  { code: "JP", name: "Jaipur" }, { code: "NGP", name: "Nagpur" },
-  { code: "GKP", name: "Gorakhpur" }, { code: "CNB", name: "Kanpur" },
-  { code: "JAT", name: "Jammu" }, { code: "GHY", name: "Guwahati" },
-  { code: "PURI", name: "Puri" }, { code: "TVC", name: "Trivandrum" },
-  { code: "MFP", name: "Muzaffarpur" }, { code: "KRBA", name: "Raipur" },
+  { code: "NDLS", name: "New Delhi" },
+  { code: "MAS", name: "Chennai" },
+  { code: "HWH", name: "Howrah" },
+  { code: "BCT", name: "Mumbai" },
+  { code: "SBC", name: "Bangalore" },
+  { code: "SC", name: "Secunderabad" },
+  { code: "BPL", name: "Bhopal" },
+  { code: "PNBE", name: "Patna" },
+  { code: "LKO", name: "Lucknow" },
+  { code: "ADI", name: "Ahmedabad" },
+  { code: "JP", name: "Jaipur" },
+  { code: "NGP", name: "Nagpur" },
+  { code: "GKP", name: "Gorakhpur" },
+  { code: "CNB", name: "Kanpur" },
+  { code: "JAT", name: "Jammu" },
+  { code: "GHY", name: "Guwahati" },
+  { code: "PURI", name: "Puri" },
+  { code: "TVC", name: "Trivandrum" },
+  { code: "MFP", name: "Muzaffarpur" },
+  { code: "KRBA", name: "Raipur" },
 ];
 
 const DEMO_TRAINS = [
@@ -49,14 +60,31 @@ function parseDelay(delayStr: string): number {
   return match ? parseInt(match[1]) : 0;
 }
 
+interface LiveTrainRoute {
+  station: string;
+  code: string;
+  scheduledArrival: string;
+  actualArrival: string;
+  delay: string;
+  scheduledDeparture: string;
+  actualDeparture: string;
+  delayDeparture: string;
+  isDeparted?: string;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default function LiveTrainsPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<"train" | "station">("train");
   const [liveData, setLiveData] = useState<any[] | null>(null);
-  const [trainDetail, setTrainDetail] = useState<any>(null);
+  const [trainDetail, setTrainDetail] = useState<{
+    number: string;
+    name?: string;
+    route: LiveTrainRoute[];
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [dataSource, setDataSource] = useState<"demo" | "live">("demo");
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const fetchLiveTrain = useAction(api.trainData.getLiveTrain);
   const fetchLiveStation = useAction(api.trainData.getLiveStation);
@@ -64,39 +92,123 @@ export default function LiveTrainsPanel() {
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsLoading(true);
+    setLastError(null);
     try {
       if (searchMode === "train") {
-        const data = await fetchLiveTrain({ trainNumber: searchQuery.trim() }) as any;
-        setTrainDetail({ number: data.trainNumber || searchQuery.trim(), route: data.route || [] });
+        const data = (await fetchLiveTrain({
+          trainNumber: searchQuery.trim(),
+        })) as any;
+        console.log("[LiveTrains] API response:", data);
+
+        // Build route from API data
+        const route: LiveTrainRoute[] = Array.isArray(data.route)
+          ? data.route.map((stop: any) => ({
+              station: stop.station || stop.StationName || "",
+              code: stop.code || stop.StationCode || "",
+              scheduledArrival: stop.scheduledArrival || stop.ScheduleArrival || "-",
+              actualArrival: stop.actualArrival || stop.ActualArrival || "-",
+              delay: stop.delay || stop.DelayInArrival || "-",
+              scheduledDeparture: stop.scheduledDeparture || stop.ScheduleDeparture || "-",
+              actualDeparture: stop.actualDeparture || stop.ActualDeparture || "-",
+              delayDeparture: stop.delayDeparture || stop.DelayInDeparture || "-",
+              isDeparted: stop.isDeparted || stop.IsDeparted || "",
+            }))
+          : [];
+
+        setTrainDetail({
+          number: data.trainNumber || searchQuery.trim(),
+          name: data.name || DEMO_TRAINS.find((t) => t.number === searchQuery.trim())?.name,
+          route,
+        });
         setLiveData(null);
         setDataSource("live");
+        toast.success("Live data loaded!", {
+          description: `Train ${data.trainNumber || searchQuery.trim()} — ${route.length} stops`,
+        });
       } else {
-        const data = await fetchLiveStation({ stationCode: searchQuery.trim().toUpperCase() }) as any;
-        setLiveData(Array.isArray(data) ? data : []);
+        const data = (await fetchLiveStation({
+          stationCode: searchQuery.trim().toUpperCase(),
+        })) as any;
+        console.log("[LiveTrains] Station response:", data);
+
+        const trains = Array.isArray(data) ? data : [];
+        setLiveData(
+          trains.map((t: any) => ({
+            name: t.name || t.Name || "",
+            number: t.number || t.Number || "",
+            source: t.source || t.Source || "",
+            destination: t.destination || t.Destination || "",
+            expectedArrival: t.expectedArrival || t.ExpectedArrival || "-",
+            delay: t.delay || t.DelayInArrival || "-",
+            expectedDeparture: t.expectedDeparture || t.ExpectedDeparture || "-",
+            scheduledArrival: t.scheduledArrival || t.ScheduleArrival || "-",
+            scheduledDeparture: t.scheduledDeparture || t.ScheduleDeparture || "-",
+          }))
+        );
         setTrainDetail(null);
         setDataSource("live");
+        toast.success("Live station data loaded!", {
+          description: `${trains.length} trains at ${searchQuery.toUpperCase()}`,
+        });
       }
     } catch (error) {
-      // Always show demo data as fallback
+      console.error("[LiveTrains] API error:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setLastError(errorMsg);
+
+      // Fall back to demo data
       if (searchMode === "train") {
         const demo = DEMO_TRAINS.find((t) => t.number === searchQuery.trim());
         if (demo) {
+          const delayMins = parseDelay(demo.delay);
           setTrainDetail({
             number: demo.number,
             name: demo.name,
             route: [
-              { station: demo.source, code: demo.source, scheduledArrival: "Source", actualArrival: "Source", delay: "-", scheduledDeparture: "08:00 AM", actualDeparture: "08:00 AM", delayDeparture: "00 M" },
-              { station: demo.currentStation, code: "---", scheduledArrival: "12:00 PM", actualArrival: "12:" + String(Math.min(parseDelay(demo.delay), 59)).padStart(2, "0") + " PM", delay: demo.delay, scheduledDeparture: "12:05 PM", actualDeparture: "12:" + String(Math.min(parseDelay(demo.delay) + 5, 59)).padStart(2, "0") + " PM", delayDeparture: demo.delay },
-              { station: demo.destination, code: demo.destination, scheduledArrival: "06:00 PM", actualArrival: "06:" + String(Math.min(parseDelay(demo.delay), 59)).padStart(2, "0") + " PM", delay: demo.delay, scheduledDeparture: "Destination", actualDeparture: "Destination", delayDeparture: "-" },
+              {
+                station: demo.source,
+                code: demo.source,
+                scheduledArrival: "Source",
+                actualArrival: "Source",
+                delay: "-",
+                scheduledDeparture: "08:00 AM",
+                actualDeparture: "08:00 AM",
+                delayDeparture: "00 M",
+              },
+              {
+                station: demo.currentStation,
+                code: "---",
+                scheduledArrival: "12:00 PM",
+                actualArrival: `12:${String(delayMins).padStart(2, "0")} PM`,
+                delay: demo.delay,
+                scheduledDeparture: "12:05 PM",
+                actualDeparture: `12:${String(Math.min(delayMins + 5, 59)).padStart(2, "0")} PM`,
+                delayDeparture: demo.delay,
+              },
+              {
+                station: demo.destination,
+                code: demo.destination,
+                scheduledArrival: "06:00 PM",
+                actualArrival: `06:${String(delayMins).padStart(2, "0")} PM`,
+                delay: demo.delay,
+                scheduledDeparture: "Destination",
+                actualDeparture: "Destination",
+                delayDeparture: "-",
+              },
             ],
           });
           setDataSource("demo");
+          toast.info("Showing demo data", {
+            description: "API unavailable. Showing demo route for this train.",
+          });
         } else {
-          toast.info(`Train ${searchQuery} not found in demo data. Showing available trains below.`);
+          toast.info(`Train ${searchQuery} not found in demo data`, {
+            description: "Try: 12951, 12301, 12050, 12625, or click a train below.",
+          });
         }
       } else {
-        toast.error("Live station data unavailable", {
-          description: error instanceof Error ? error.message : "Using demo data.",
+        toast.error("Station data unavailable", {
+          description: "API returned an error. Showing demo data.",
         });
       }
     } finally {
@@ -104,7 +216,8 @@ export default function LiveTrainsPanel() {
     }
   };
 
-  const displayTrains = liveData && liveData.length > 0 ? liveData : DEMO_TRAINS;
+  const displayTrains =
+    liveData && liveData.length > 0 ? liveData : DEMO_TRAINS;
   const hasLiveData = dataSource === "live" && liveData && liveData.length > 0;
 
   return (
@@ -113,97 +226,194 @@ export default function LiveTrainsPanel() {
       <div className="rounded-2xl p-5 border border-border/50 bg-card">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex bg-primary/10 rounded-xl p-0.5">
-            <button onClick={() => setSearchMode("train")}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${searchMode === "train" ? "bg-primary text-primary-foreground" : "text-primary"}`}>
+            <button
+              onClick={() => setSearchMode("train")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${searchMode === "train" ? "bg-primary text-primary-foreground" : "text-primary"}`}
+            >
               Train Number
             </button>
-            <button onClick={() => setSearchMode("station")}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${searchMode === "station" ? "bg-primary text-primary-foreground" : "text-primary"}`}>
+            <button
+              onClick={() => setSearchMode("station")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${searchMode === "station" ? "bg-primary text-primary-foreground" : "text-primary"}`}
+            >
               Station Code
             </button>
           </div>
           <div className="flex-1 flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder={searchMode === "train" ? "Enter train number (e.g. 12951)" : "Enter station code (e.g. NDLS)"}
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-background/50 border border-border/50 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                placeholder={
+                  searchMode === "train"
+                    ? "Enter train number (e.g. 12951)"
+                    : "Enter station code (e.g. NDLS)"
+                }
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-background/50 border border-border/50 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              />
             </div>
-            <button onClick={handleSearch} disabled={isLoading || !searchQuery.trim()}
-              className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-2">
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}Search
+            <button
+              onClick={handleSearch}
+              disabled={isLoading || !searchQuery.trim()}
+              className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-2"
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              Search
             </button>
           </div>
         </div>
+
+        {/* Data source indicator */}
         <div className="flex items-center gap-2 text-xs">
           {dataSource === "live" ? (
             <>
               <Radio className="w-3 h-3 text-chart-3 animate-pulse" />
-              <span className="text-chart-3 font-medium">Live data from Indian Railways</span>
-              <button onClick={() => { setDataSource("demo"); setLiveData(null); setTrainDetail(null); }} className="ml-auto text-muted-foreground hover:text-foreground">Switch to demo</button>
+              <span className="text-chart-3 font-medium">
+                Live data from Indian Railways API
+              </span>
+              <button
+                onClick={() => {
+                  setDataSource("demo");
+                  setLiveData(null);
+                  setTrainDetail(null);
+                }}
+                className="ml-auto text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Switch to demo
+              </button>
             </>
           ) : (
             <>
               <div className="w-3 h-3 rounded-full bg-chart-4/50" />
-              <span className="text-chart-4 font-medium">Demo data — search any train for live data</span>
+              <span className="text-chart-4 font-medium">
+                Demo data — search any train number for live data
+              </span>
             </>
           )}
         </div>
+
+        {/* Error info */}
+        {lastError && (
+          <div className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+            <p className="font-medium">API Error Details:</p>
+            <p className="mt-1 opacity-80 break-all">{lastError}</p>
+          </div>
+        )}
       </div>
 
       {/* Train detail view */}
       {trainDetail && (
         <div className="rounded-2xl p-6 border border-primary/30 bg-primary/5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center"><Train className="w-5 h-5 text-primary" /></div>
-            <div>
-              <h3 className="font-semibold">Train #{trainDetail.number}{trainDetail.name ? ` — ${trainDetail.name}` : ""}</h3>
-              <p className="text-xs text-muted-foreground">{dataSource === "live" ? "Live route with real delays" : "Demo route data"}</p>
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Train className="w-5 h-5 text-primary" />
             </div>
-            <button onClick={() => setTrainDetail(null)} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Close</button>
+            <div>
+              <h3 className="font-semibold">
+                Train #{trainDetail.number}
+                {trainDetail.name ? ` — ${trainDetail.name}` : ""}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {dataSource === "live"
+                  ? "Live route with real delays"
+                  : "Demo route data"}
+                {" • "}
+                {trainDetail.route.length} stops
+              </p>
+            </div>
+            <button
+              onClick={() => setTrainDetail(null)}
+              className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+            >
+              ✕ Close
+            </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/30">
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Code</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Station</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Sched. Arr</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Actual Arr</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Delay</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Sched. Dep</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Actual Dep</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trainDetail.route.map((stop: any, i: number) => {
-                  const delay = parseDelay(stop.delay);
-                  return (
-                    <tr key={i} className="border-b border-border/20 hover:bg-primary/5">
-                      <td className="px-3 py-2 font-mono text-xs">{stop.code}</td>
-                      <td className="px-3 py-2 font-medium">{stop.station}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{stop.scheduledArrival}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{stop.actualArrival}</td>
-                      <td className="px-3 py-2">
-                        {delay > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-xs font-semibold">
-                            <AlertTriangle className="w-3 h-3" />{stop.delay}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-chart-3/15 text-chart-3 text-xs font-semibold">
-                            <CheckCircle2 className="w-3 h-3" />RT
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 font-mono text-xs">{stop.scheduledDeparture}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{stop.actualDeparture}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {trainDetail.route.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/30">
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Code
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Station
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Sched. Arr
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Actual Arr
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Delay
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Sched. Dep
+                    </th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">
+                      Actual Dep
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trainDetail.route.map((stop: LiveTrainRoute, i: number) => {
+                    const delay = parseDelay(stop.delay);
+                    return (
+                      <tr
+                        key={i}
+                        className="border-b border-border/20 hover:bg-primary/5"
+                      >
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {stop.code}
+                        </td>
+                        <td className="px-3 py-2 font-medium">
+                          {stop.station}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {stop.scheduledArrival}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {stop.actualArrival}
+                        </td>
+                        <td className="px-3 py-2">
+                          {delay > 0 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-xs font-semibold">
+                              <AlertTriangle className="w-3 h-3" />
+                              {stop.delay}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-chart-3/15 text-chart-3 text-xs font-semibold">
+                              <CheckCircle2 className="w-3 h-3" />
+                              RT
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {stop.scheduledDeparture}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs">
+                          {stop.actualDeparture}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              No route data available. The API returned an empty route.
+            </div>
+          )}
         </div>
       )}
 
@@ -213,8 +423,14 @@ export default function LiveTrainsPanel() {
           <h3 className="font-semibold mb-3">Quick Access — Major Stations</h3>
           <div className="flex flex-wrap gap-2">
             {popularStations.map((s) => (
-              <button key={s.code} onClick={() => { setSearchQuery(s.code); setSearchMode("station"); }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/50 hover:bg-primary/10 hover:border-primary/30 transition-all">
+              <button
+                key={s.code}
+                onClick={() => {
+                  setSearchQuery(s.code);
+                  setSearchMode("station");
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border/50 hover:bg-primary/10 hover:border-primary/30 transition-all"
+              >
                 <span className="font-mono font-bold">{s.code}</span>
                 <span className="text-muted-foreground ml-1">{s.name}</span>
               </button>
@@ -228,42 +444,75 @@ export default function LiveTrainsPanel() {
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
           <div className="px-5 py-4 border-b border-border/30 flex items-center gap-2">
             <Radio className="w-4 h-4 text-chart-3 animate-pulse" />
-            <h3 className="font-semibold">Live Station — {searchQuery.toUpperCase()}</h3>
-            <span className="text-xs text-muted-foreground ml-auto">{(liveData as any[]).length} trains</span>
+            <h3 className="font-semibold">
+              Live Station — {searchQuery.toUpperCase()}
+            </h3>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {liveData!.length} trains
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/30">
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Train</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Route</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Expected Arr</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Delay</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Expected Dep</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Train
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Route
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Expected Arr
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Delay
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Expected Dep
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {(liveData as any[]).map((train: any, i: number) => (
-                  <tr key={i} className="border-b border-border/20 hover:bg-primary/5 cursor-pointer"
-                    onClick={() => { setSearchQuery(train.number); setSearchMode("train"); handleSearch(); }}>
+                {liveData!.map((train: any, i: number) => (
+                  <tr
+                    key={i}
+                    className="border-b border-border/20 hover:bg-primary/5 cursor-pointer"
+                    onClick={() => {
+                      setSearchQuery(train.number);
+                      setSearchMode("train");
+                      handleSearch();
+                    }}
+                  >
                     <td className="px-5 py-3">
-                      <div className="font-mono font-semibold">{train.number}</div>
-                      <div className="text-xs text-muted-foreground">{train.name}</div>
+                      <div className="font-mono font-semibold">
+                        {train.number}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {train.name}
+                      </div>
                     </td>
-                    <td className="px-5 py-3 text-xs text-muted-foreground">{train.source} → {train.destination}</td>
-                    <td className="px-5 py-3 font-mono text-xs">{train.expectedArrival}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
+                      {train.source} → {train.destination}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs">
+                      {train.expectedArrival}
+                    </td>
                     <td className="px-5 py-3">
                       {parseDelay(train.delay) > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-xs font-semibold">
-                          <AlertTriangle className="w-3 h-3" />{train.delay}
+                          <AlertTriangle className="w-3 h-3" />
+                          {train.delay}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-chart-3/15 text-chart-3 text-xs font-semibold">
-                          <CheckCircle2 className="w-3 h-3" />RT
+                          <CheckCircle2 className="w-3 h-3" />
+                          RT
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3 font-mono text-xs">{train.expectedDeparture}</td>
+                    <td className="px-5 py-3 font-mono text-xs">
+                      {train.expectedDeparture}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -280,49 +529,89 @@ export default function LiveTrainsPanel() {
               <Train className="w-4 h-4 text-primary" />
               <h3 className="font-semibold">Trains Across India</h3>
             </div>
-            <span className="text-xs text-muted-foreground">{DEMO_TRAINS.length} trains</span>
+            <span className="text-xs text-muted-foreground">
+              {DEMO_TRAINS.length} trains
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/30">
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Train</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Route</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Current Location</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Speed</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Delay</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Status</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Train
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Route
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Current Location
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Speed
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Delay
+                  </th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {DEMO_TRAINS.map((train, i) => {
                   const delay = parseDelay(train.delay);
                   return (
-                    <tr key={i} className="border-b border-border/20 hover:bg-primary/5 cursor-pointer"
-                      onClick={() => { setSearchQuery(train.number); setSearchMode("train"); handleSearch(); }}>
+                    <tr
+                      key={i}
+                      className="border-b border-border/20 hover:bg-primary/5 cursor-pointer"
+                      onClick={() => {
+                        setSearchQuery(train.number);
+                        setSearchMode("train");
+                        handleSearch();
+                      }}
+                    >
                       <td className="px-5 py-3">
-                        <div className="font-mono font-semibold">{train.number}</div>
-                        <div className="text-xs text-muted-foreground">{train.name}</div>
+                        <div className="font-mono font-semibold">
+                          {train.number}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {train.name}
+                        </div>
                       </td>
-                      <td className="px-5 py-3 text-xs text-muted-foreground">{train.source} → {train.destination}</td>
+                      <td className="px-5 py-3 text-xs text-muted-foreground">
+                        {train.source} → {train.destination}
+                      </td>
                       <td className="px-5 py-3">
-                        <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-primary" /><span className="text-sm">{train.currentStation}</span></div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-primary" />
+                          <span className="text-sm">
+                            {train.currentStation}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-5 py-3 text-xs font-medium">{train.speed}</td>
+                      <td className="px-5 py-3 text-xs font-medium">
+                        {train.speed}
+                      </td>
                       <td className="px-5 py-3">
                         {delay > 0 ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-xs font-semibold">
-                            <AlertTriangle className="w-3 h-3" />{train.delay}
+                            <AlertTriangle className="w-3 h-3" />
+                            {train.delay}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-chart-3/15 text-chart-3 text-xs font-semibold">
-                            <CheckCircle2 className="w-3 h-3" />RT
+                            <CheckCircle2 className="w-3 h-3" />
+                            RT
                           </span>
                         )}
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${train.status === "running" ? "bg-chart-3/15 text-chart-3" : "bg-chart-4/15 text-chart-4"}`}>
-                          {train.status === "running" ? "Running" : "Delayed"}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${train.status === "running" ? "bg-chart-3/15 text-chart-3" : "bg-chart-4/15 text-chart-4"}`}
+                        >
+                          {train.status === "running"
+                            ? "Running"
+                            : "Delayed"}
                         </span>
                       </td>
                     </tr>
