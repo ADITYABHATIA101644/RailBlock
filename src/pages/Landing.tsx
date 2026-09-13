@@ -178,14 +178,14 @@ export default function Landing() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <button
-              onClick={() => navigate("/auth?returnTo=/dashboard")}
+              onClick={() => navigate("/login")}
               className="group relative px-8 py-4 bg-primary text-primary-foreground rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_oklch(0.75_0.15_55_/_0.3)] flex items-center gap-2 justify-center"
             >
               Launch Command Center
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
-              onClick={() => navigate("/auth?returnTo=/dashboard")}
+              onClick={() => navigate("/login")}
               className="px-8 py-4 rounded-xl font-semibold text-lg border border-white/20 text-white hover:bg-white/10 transition-all duration-300"
             >
               View Live Demo
@@ -389,7 +389,7 @@ export default function Landing() {
           </motion.p>
           <motion.div variants={fadeUp} custom={2}>
             <button
-              onClick={() => navigate("/auth?returnTo=/dashboard")}
+              onClick={() => navigate("/login")}
               className="group inline-flex items-center gap-3 px-10 py-5 bg-primary text-primary-foreground rounded-2xl font-bold text-xl transition-all duration-300 hover:scale-105 hover:shadow-[0_0_60px_oklch(0.75_0.15_55_/_0.3)]"
             >
               Enter the Command Center
