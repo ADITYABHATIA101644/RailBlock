@@ -12,11 +12,13 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ArrowRight, Loader2, Mail, Lock, Train, Shield, Eye, EyeOff } from "lucide-react";
 import { Suspense, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const loginMutation = useMutation(api.security.login);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -48,7 +50,13 @@ function Login() {
         description: `Signed in as ${result.name || result.email}`,
       });
 
-      navigate("/dashboard");
+      // Send users back to where they came from (e.g. a dashboard sub-page)
+      // or to the dashboard by default. Guard against open redirects.
+      const destination =
+        returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+          ? returnTo
+          : "/dashboard";
+      navigate(destination);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       setError(msg);
