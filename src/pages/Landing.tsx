@@ -21,6 +21,7 @@ import TiltCard from "@/components/ui/tilt-card";
 // 3D scenes are lazy-loaded so the page paints instantly
 const RailwayScene = lazy(() => import("@/components/three/RailwayScene"));
 const GlobeScene = lazy(() => import("@/components/three/GlobeScene"));
+const ProblemHUD = lazy(() => import("@/components/hero/ProblemHUD"));
 
 function SceneFallback() {
   return (
@@ -214,12 +215,24 @@ export default function Landing() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.35 }}
-              className="text-lg max-w-lg mx-auto lg:mx-0 mb-9 leading-relaxed"
+              className="text-lg max-w-lg mx-auto lg:mx-0 mb-4 leading-relaxed"
               style={{ color: "#abaebb" }}
             >
               AI-Powered Automatic Block Planning to{" "}
               <span className="font-semibold text-white">Maximize Asset Availability</span> —
               optimizing maintenance windows while minimizing train disruption.
+            </motion.p>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.5 }}
+              className="text-xs mb-9 flex items-center gap-2 justify-center lg:justify-start"
+              style={{ color: "#3c3f44" }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+              Watch the live scene: a train held at a red signal before a maintenance block —
+              daily reality across 70+ divisions.
             </motion.p>
 
             <motion.div
@@ -274,7 +287,7 @@ export default function Landing() {
             <motion.div
               animate={{ y: [0, 8, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute bottom-6 left-6 px-4 py-2.5 rounded-xl backdrop-blur-xl"
+              className="absolute top-6 left-6 px-4 py-2.5 rounded-xl backdrop-blur-xl"
               style={{ background: "rgba(13,23,43,0.8)", border: "1px solid #24375a" }}
             >
               <div className="text-[10px] uppercase tracking-wide" style={{ color: "#85a6e9" }}>
@@ -282,6 +295,10 @@ export default function Landing() {
               </div>
               <div className="text-lg font-bold text-white">17 Zones · 70+ Divisions</div>
             </motion.div>
+            {/* Live problem monitor — real IRCTC delay, detention & loss over the 3D story */}
+            <Suspense fallback={null}>
+              <ProblemHUD />
+            </Suspense>
           </motion.div>
         </div>
 
