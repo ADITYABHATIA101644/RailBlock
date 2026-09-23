@@ -106,6 +106,35 @@ const schema = defineSchema(
     })
       .index("by_identifier", ["identifier", "action"]),
 
+    // Block requests — the core workflow entity (PRD data model: BlockRequest + BlockPlan)
+    blockRequests: defineTable({
+      blockId: v.string(),
+      section: v.string(),
+      dept: v.string(),           // P-Way Engineering | Signal & Telecom | OHE/Electrical | Operating
+      workType: v.string(),
+      requestedBy: v.string(),
+      requestedByRole: v.optional(v.string()),
+      urgency: v.string(),        // high | medium | low
+      blockType: v.optional(v.string()), // full | single-line | power | emergency
+      window: v.string(),         // e.g. "23:00 – 02:00"
+      duration: v.string(),       // e.g. "3 hours"
+      aiScore: v.optional(v.number()),
+      aiRecommended: v.optional(v.boolean()),
+      aiRationale: v.optional(v.string()),
+      status: v.string(),         // pending | approved | rejected | escalated | in_progress | completed | cancelled
+      notes: v.optional(v.string()),
+      rejectionReason: v.optional(v.string()),
+      createdAt: v.number(),
+      decidedAt: v.optional(v.number()),
+      decidedBy: v.optional(v.string()),
+      startedAt: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      workCompletedPct: v.optional(v.number()),
+    })
+      .index("by_status", ["status"])
+      .index("by_blockId", ["blockId"])
+      .index("by_created", ["createdAt"]),
+
     // add other tables here
 
     // tableName: defineTable({

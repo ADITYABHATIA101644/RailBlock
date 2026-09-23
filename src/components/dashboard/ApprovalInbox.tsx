@@ -1,102 +1,20 @@
 import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import {
   Shield,
-  Clock,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   ChevronRight,
   User,
   Timer,
   Eye,
+  Loader2,
+  Ban,
+  Clock,
 } from "lucide-react";
-
-type ApprovalStatus = "pending" | "approved" | "rejected" | "escalated";
-
-interface Approval {
-  id: string;
-  section: string;
-  dept: string;
-  workType: string;
-  requestedBy: string;
-  urgency: "high" | "medium" | "low";
-  slaDeadline: string;
-  slaProgress: number;
-  aiRecommended: boolean;
-  aiScore: number;
-  submittedAt: string;
-  duration: string;
-  window: string;
-  status: ApprovalStatus;
-}
-
-const initialApprovals: Approval[] = [
-  {
-    id: "BLK-2024-0849",
-    section: "Agra Cantt (KM 178-182)",
-    dept: "OHE/Electrical",
-    workType: "Power Block — OHE Replacement",
-    requestedBy: "Er. Rajesh Kumar (SSE/OHE)",
-    urgency: "high",
-    slaDeadline: "2h 15m",
-    slaProgress: 65,
-    aiRecommended: true,
-    aiScore: 91,
-    submittedAt: "Today, 18:45",
-    duration: "3 hours",
-    window: "23:00 – 02:00",
-    status: "pending",
-  },
-  {
-    id: "BLK-2024-0850",
-    section: "Delhi → Ghaziabad (KM 0-25)",
-    dept: "P-Way Engineering",
-    workType: "Ballast Cleaning & Tamping",
-    requestedBy: "Er. Amit Singh (JE/P-Way)",
-    urgency: "medium",
-    slaDeadline: "5h 30m",
-    slaProgress: 35,
-    aiRecommended: true,
-    aiScore: 84,
-    submittedAt: "Today, 15:20",
-    duration: "4 hours",
-    window: "00:00 – 04:00",
-    status: "pending",
-  },
-  {
-    id: "BLK-2024-0851",
-    section: "Ghaziabad → Meerut (KM 25-55)",
-    dept: "Signal & Telecom",
-    workType: "Signal Upgradation",
-    requestedBy: "Er. Priya Verma (SSE/S&T)",
-    urgency: "medium",
-    slaDeadline: "8h 00m",
-    slaProgress: 20,
-    aiRecommended: false,
-    aiScore: 72,
-    submittedAt: "Today, 14:00",
-    duration: "3 hours",
-    window: "03:00 – 06:00",
-    status: "pending",
-  },
-  {
-    id: "BLK-2024-0852",
-    section: "Mathura Jn → Bharatpur (KM 165-190)",
-    dept: "P-Way Engineering",
-    workType: "USFD Defect Rectification",
-    requestedBy: "Er. Vikram Joshi (AE/P-Way)",
-    urgency: "high",
-    slaDeadline: "1h 45m",
-    slaProgress: 82,
-    aiRecommended: true,
-    aiScore: 96,
-    submittedAt: "Today, 19:15",
-    duration: "2 hours",
-    window: "22:00 – 00:00",
-    status: "pending",
-  },
-];
+import type { Doc } from "@/convex/_generated/dataModel";
 
 const urgencyColors: Record<string, string> = {
   high: "bg-destructive/15 text-destructive border-destructive/30",
@@ -105,70 +23,99 @@ const urgencyColors: Record<string, string> = {
 };
 
 export default function ApprovalInbox() {
-  const [approvals, setApprovals] = useState<Approval[]>(initialApprovals);
-  const [approvedHistory, setApprovedHistory] = useState([
-    { id: "BLK-0847", section: "Delhi → Nizamuddin", approvedBy: "Sr. DOM", time: "Today, 16:30" },
-    { id: "BLK-0843", section: "Agra → Mathura", approvedBy: "DOM", time: "Today, 10:00" },
-  ]);
+  const allBlocks = useQuery(api.blocks.listBlockRequests, { limit: 100 });
+  const approveBlock = useMutation(api.blocks.approveBlock);
+  const rejectBlock = useMutation(api.blocks.rejectBlock);
+  const escalateBlock = useMutation(api.blocks.escalateBlock);
   const [expandedApproval, setExpandedApproval] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "urgent" | "ai-recommended">("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
-  const pendingCount = approvals.filter((a) => a.status === "pending").length;
-  const urgentCount = approvals.filter((a) => a.status === "pending" && a.urgency === "high").length;
-  const approvedTodayCount = approvedHistory.length;
+  const decidedBy =
+    (typeof sessionStorage !== "undefined" &&
+      (sessionStorage.getItem("railblock_user_name") ||
+        (sessionStorage.getItem("railblock_role") === "admin" ? "DRM (Admin)" : "Sr. DOM (Approver)"))) ||
+    "Sr. DOM (Approver)";
 
-  const filtered = approvals.filter((a) => {
-    if (a.status !== "pending") return false;
+  // 8-hour SLA from request creation
+  const slaInfo = (block: Doc<"blockRequests">) => {
+    const slaMs = 8 * 60 * 60 * 1000;
+    const elapsed = Math.max(0, Date.now() - block.createdAt);
+    const remaining = Math.max(0, slaMs - elapsed);
+    const progress = Math.min(100, Math.round((elapsed / slaMs) * 100));
+    const h = Math.floor(remaining / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    return { label: `${h}h ${String(m).padStart(2, "0")}m`, progress };
+  };
+
+  const pending = (allBlocks ?? []).filter((b) => b.status === "pending" || b.status === "escalated");
+  const approvedHistory = (allBlocks ?? []).filter((b) => b.status === "approved" && b.decidedAt);
+  const rejectedHistory = (allBlocks ?? []).filter((b) => b.status === "rejected");
+
+  const pendingCount = pending.length;
+  const urgentCount = pending.filter((a) => a.urgency === "high").length;
+  const approvedTodayCount = approvedHistory.filter(
+    (b) => (b.decidedAt ?? 0) > Date.now() - 24 * 60 * 60 * 1000,
+  ).length;
+
+  const filtered = pending.filter((a) => {
     if (filter === "urgent") return a.urgency === "high";
-    if (filter === "ai-recommended") return a.aiRecommended;
+    if (filter === "ai-recommended") return a.aiRecommended === true;
     return true;
   });
 
-  const handleApprove = (id: string) => {
-    const block = approvals.find((a) => a.id === id);
-    if (!block) return;
-
-    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "approved" as const } : a)));
-    setApprovedHistory((prev) => [
-      { id: id.replace("BLK-2024-", "BLK-"), section: block.section.split(" (")[0], approvedBy: "You (Sr. DOM)", time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
-      ...prev,
-    ]);
-    setExpandedApproval(null);
-    toast.success(`Block ${id} approved`, {
-      description: `${block.section} — ${block.dept}. Field crew has been notified.`,
-    });
+  const runAction = async (
+    block: Doc<"blockRequests">,
+    action: "approve" | "reject" | "escalate",
+    reason?: string,
+  ) => {
+    setBusyId(block.blockId);
+    try {
+      if (action === "approve") {
+        await approveBlock({ blockId: block.blockId, decidedBy });
+        toast.success(`Block ${block.blockId} approved`, {
+          description: `${block.section} — ${block.dept}. Now visible to Field Crew.`,
+        });
+      } else if (action === "reject") {
+        await rejectBlock({ blockId: block.blockId, decidedBy, reason });
+        toast.error(`Block ${block.blockId} rejected`, {
+          description: `${block.section} — ${block.requestedBy} will be notified.`,
+        });
+      } else {
+        await escalateBlock({ blockId: block.blockId, decidedBy });
+        toast.info(`Block ${block.blockId} escalated`, {
+          description: `Escalated to DRM for ${block.section}.`,
+        });
+      }
+      setExpandedApproval(null);
+      setRejectId(null);
+      setRejectReason("");
+    } catch (err) {
+      toast.error(`Could not ${action} block`, {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const handleReject = (id: string) => {
-    const block = approvals.find((a) => a.id === id);
-    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "rejected" as const } : a)));
-    setExpandedApproval(null);
-    toast.error(`Block ${id} rejected`, {
-      description: block ? `${block.section} — Requester ${block.requestedBy} will be notified.` : undefined,
-    });
-  };
-
-  const handleEscalate = (id: string) => {
-    const block = approvals.find((a) => a.id === id);
-    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: "escalated" as const } : a)));
-    setExpandedApproval(null);
-    toast.info(`Block ${id} escalated`, {
-      description: block ? `Escalated to DRM for ${block.section}. SLA timer paused.` : undefined,
-    });
-  };
+  const formatTime = (ts: number) =>
+    new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Pending", value: pendingCount.toString(), color: "text-chart-4", bg: "bg-chart-4/10" },
-          { label: "Urgent", value: urgentCount.toString(), color: "text-destructive", bg: "bg-destructive/10" },
-          { label: "Approved Today", value: approvedTodayCount.toString(), color: "text-chart-3", bg: "bg-chart-3/10" },
-          { label: "Avg SLA", value: "3.2h", color: "text-primary", bg: "bg-primary/10" },
+          { label: "Pending", value: pendingCount.toString(), color: "text-chart-4" },
+          { label: "Urgent", value: urgentCount.toString(), color: "text-destructive" },
+          { label: "Approved (24h)", value: approvedTodayCount.toString(), color: "text-chart-3" },
+          { label: "SLA Window", value: "8h", color: "text-primary" },
         ].map((stat, i) => (
           <div key={i} className="rounded-2xl p-4 border border-border/50 bg-card">
-            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-2`}>
+            <div className={`w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-2`}>
               <Shield className={`w-5 h-5 ${stat.color}`} />
             </div>
             <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
@@ -200,138 +147,267 @@ export default function ApprovalInbox() {
 
       {/* Approval list */}
       <div className="space-y-3">
-        {filtered.length === 0 && (
+        {allBlocks === undefined ? (
+          <div className="rounded-2xl p-8 border border-border/50 bg-card text-center">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="rounded-2xl p-8 border border-border/50 bg-card text-center">
             <CheckCircle2 className="w-10 h-10 text-chart-3 mx-auto mb-3" />
             <p className="text-sm font-medium text-foreground">All caught up!</p>
-            <p className="text-xs text-muted-foreground mt-1">No pending approvals match this filter.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              No pending approvals. New requests from the Block Request form appear here instantly.
+            </p>
           </div>
-        )}
-        {filtered.map((approval) => (
-          <div
-            key={approval.id}
-            className={`rounded-2xl border transition-all duration-300 ${
-              approval.slaProgress > 70
-                ? "border-destructive/40 bg-destructive/5"
-                : "border-border/50 bg-card hover:border-primary/20"
-            }`}
-          >
+        ) : null}
+
+        {filtered.map((approval) => {
+          const sla = slaInfo(approval);
+          const isBusy = busyId === approval.blockId;
+          const isRejecting = rejectId === approval.blockId;
+          return (
             <div
-              className="flex items-center gap-4 p-5 cursor-pointer"
-              onClick={() =>
-                setExpandedApproval(expandedApproval === approval.id ? null : approval.id)
-              }
+              key={approval.blockId}
+              className={`rounded-2xl border transition-all duration-300 ${
+                sla.progress > 70
+                  ? "border-destructive/40 bg-destructive/5"
+                  : "border-border/50 bg-card hover:border-primary/20"
+              }`}
             >
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  approval.slaProgress > 70 ? "bg-destructive/15" : "bg-primary/10"
-                }`}
+                className="flex items-center gap-4 p-5 cursor-pointer"
+                onClick={() =>
+                  setExpandedApproval(expandedApproval === approval.blockId ? null : approval.blockId)
+                }
               >
-                <Timer className={`w-5 h-5 ${approval.slaProgress > 70 ? "text-destructive" : "text-primary"}`} />
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    sla.progress > 70 ? "bg-destructive/15" : "bg-primary/10"
+                  }`}
+                >
+                  <Timer className={`w-5 h-5 ${sla.progress > 70 ? "text-destructive" : "text-primary"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-semibold text-sm">{approval.blockId}</span>
+                    {approval.status === "escalated" && (
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-chart-4/15 text-chart-4 border border-chart-4/30">
+                        ESCALATED
+                      </span>
+                    )}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${urgencyColors[approval.urgency] ?? ""}`}
+                    >
+                      {approval.urgency}
+                    </span>
+                    {approval.aiRecommended && (
+                      <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-xs font-semibold">
+                        AI ✓
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm mt-0.5">
+                    {approval.section} — {approval.dept}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {approval.workType} | Window: {approval.window}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className={`text-lg font-bold ${sla.progress > 70 ? "text-destructive" : ""}`}>
+                    {sla.label}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">SLA Remaining</div>
+                  <div className="w-20 h-1.5 rounded-full bg-primary/10 mt-1 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        sla.progress > 70 ? "bg-destructive" : "bg-primary"
+                      }`}
+                      style={{ width: `${sla.progress}%` }}
+                    />
+                  </div>
+                </div>
+                <ChevronRight
+                  className={`w-5 h-5 text-muted-foreground transition-transform shrink-0 ${
+                    expandedApproval === approval.blockId ? "rotate-90" : ""
+                  }`}
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono font-semibold text-sm">{approval.id}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${urgencyColors[approval.urgency]}`}>
-                    {approval.urgency}
-                  </span>
-                  {approval.aiRecommended && (
-                    <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-xs font-semibold">AI ✓</span>
+
+              {expandedApproval === approval.blockId && (
+                <div className="px-5 pb-5 border-t border-border/30 pt-4 space-y-4">
+                  {/* Details */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Requested By</div>
+                      <div className="font-medium mt-0.5">{approval.requestedBy}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Submitted</div>
+                      <div className="font-medium mt-0.5">{formatTime(approval.createdAt)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">AI Confidence</div>
+                      <div className="font-bold text-primary mt-0.5">
+                        {approval.aiScore != null ? `${approval.aiScore}%` : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Block Type</div>
+                      <div className="font-medium mt-0.5 capitalize">{approval.blockType ?? "full"}</div>
+                    </div>
+                  </div>
+
+                  {approval.aiRationale && (
+                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+                      <div className="text-[11px] font-semibold text-primary mb-1">AI RATIONALE</div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{approval.aiRationale}</p>
+                    </div>
                   )}
+
+                  {approval.notes && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">Requester notes:</span> {approval.notes}
+                    </div>
+                  )}
+
+                  {/* Reject reason input */}
+                  {isRejecting && (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !isBusy) {
+                            runAction(approval, "reject", rejectReason || "Traffic priority");
+                          }
+                          if (e.key === "Escape") setRejectId(null);
+                        }}
+                        placeholder="Reason for rejection (logged in audit trail)..."
+                        className="flex-1 px-3 py-2 rounded-xl text-sm bg-background/60 border border-border/50 focus:outline-none focus:border-primary/40"
+                      />
+                      <button
+                        onClick={() => runAction(approval, "reject", rejectReason || "Traffic priority")}
+                        disabled={isBusy}
+                        className="px-4 py-2 rounded-xl bg-destructive text-white text-sm font-semibold disabled:opacity-50"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runAction(approval, "approve");
+                      }}
+                      disabled={isBusy}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-chart-3 text-white text-sm font-semibold hover:bg-chart-3/90 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      Approve
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRejectId(isRejecting ? null : approval.blockId);
+                      }}
+                      disabled={isBusy}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <XCircle className="w-4 h-4" /> Reject
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toast.info(
+                          `${approval.blockId} — ${approval.workType}\nSection: ${approval.section}\nWindow: ${approval.window} (${approval.duration})\nRequested by: ${approval.requestedBy}${approval.aiRationale ? `\n\nAI: ${approval.aiRationale}` : ""}`,
+                          { duration: 8000 },
+                        );
+                      }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95"
+                    >
+                      <Eye className="w-4 h-4" /> View Details
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runAction(approval, "escalate");
+                      }}
+                      disabled={isBusy}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <User className="w-4 h-4" /> Escalate to DRM
+                    </button>
+                  </div>
                 </div>
-                <div className="text-sm mt-0.5">{approval.section} — {approval.dept}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {approval.workType} | Window: {approval.window}
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className={`text-lg font-bold ${approval.slaProgress > 70 ? "text-destructive" : ""}`}>
-                  {approval.slaDeadline}
-                </div>
-                <div className="text-[10px] text-muted-foreground">SLA Remaining</div>
-                <div className="w-20 h-1.5 rounded-full bg-primary/10 mt-1 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      approval.slaProgress > 70 ? "bg-destructive" : "bg-primary"
-                    }`}
-                    style={{ width: `${approval.slaProgress}%` }}
-                  />
-                </div>
-              </div>
-              <ChevronRight
-                className={`w-5 h-5 text-muted-foreground transition-transform shrink-0 ${
-                  expandedApproval === approval.id ? "rotate-90" : ""
-                }`}
-              />
+              )}
             </div>
-
-            {expandedApproval === approval.id && (
-              <div className="px-5 pb-5 border-t border-border/30 pt-4 space-y-4">
-                {/* Details */}
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Requested By</div>
-                    <div className="font-medium mt-0.5">{approval.requestedBy}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Submitted</div>
-                    <div className="font-medium mt-0.5">{approval.submittedAt}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">AI Confidence</div>
-                    <div className="font-bold text-primary mt-0.5">{approval.aiScore}%</div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleApprove(approval.id); }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-chart-3 text-white text-sm font-semibold hover:bg-chart-3/90 transition-all active:scale-95"
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> Approve
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleReject(approval.id); }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-all active:scale-95"
-                  >
-                    <XCircle className="w-4 h-4" /> Reject
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toast.info("Full details viewer — coming soon"); }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95"
-                  >
-                    <Eye className="w-4 h-4" /> View Full Details
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleEscalate(approval.id); }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border/50 text-sm font-medium hover:bg-primary/5 transition-all active:scale-95"
-                  >
-                    <User className="w-4 h-4" /> Escalate
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Recently approved */}
-      <div className="rounded-2xl p-5 border border-border/50 bg-card">
-        <h3 className="font-semibold mb-3">Recently Approved</h3>
-        <div className="space-y-2">
-          {approvedHistory.map((item, i) => (
-            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-chart-3/5 border border-chart-3/20">
-              <CheckCircle2 className="w-5 h-5 text-chart-3 shrink-0" />
-              <div className="text-sm">
-                <span className="font-mono font-semibold">{item.id}</span>
-                <span className="text-muted-foreground"> — {item.section}</span>
-              </div>
-              <div className="ml-auto text-xs text-muted-foreground">
-                {item.approvedBy} | {item.time}
-              </div>
-            </div>
-          ))}
+      {/* Decision history */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-2xl p-5 border border-border/50 bg-card">
+          <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 text-chart-3" /> Recently Approved
+          </h3>
+          <div className="space-y-2">
+            {approvedHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No approvals yet.</p>
+            ) : (
+              approvedHistory.slice(0, 5).map((item) => (
+                <div
+                  key={item._id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-chart-3/5 border border-chart-3/20"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-chart-3 shrink-0" />
+                  <div className="text-sm min-w-0">
+                    <span className="font-mono font-semibold">{item.blockId}</span>
+                    <span className="text-muted-foreground"> — {item.section.split(" (")[0]}</span>
+                  </div>
+                  <div className="ml-auto text-[11px] text-muted-foreground shrink-0">
+                    {item.decidedBy} · {item.decidedAt ? formatTime(item.decidedAt) : ""}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl p-5 border border-border/50 bg-card">
+          <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+            <Ban className="w-4 h-4 text-destructive" /> Recently Rejected
+          </h3>
+          <div className="space-y-2">
+            {rejectedHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No rejections yet.</p>
+            ) : (
+              rejectedHistory.slice(0, 5).map((item) => (
+                <div
+                  key={item._id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-destructive/5 border border-destructive/20"
+                >
+                  <XCircle className="w-4 h-4 text-destructive shrink-0" />
+                  <div className="text-sm min-w-0">
+                    <span className="font-mono font-semibold">{item.blockId}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      — {item.rejectionReason || "No reason given"}
+                    </span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {item.decidedAt ? formatTime(item.decidedAt) : ""}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

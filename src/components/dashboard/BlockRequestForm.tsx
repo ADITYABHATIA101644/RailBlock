@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import {
   Zap,
@@ -10,6 +12,7 @@ import {
   MapPin,
   Wrench,
   Users,
+  Loader2,
 } from "lucide-react";
 
 const sections = [
@@ -54,6 +57,9 @@ export default function BlockRequestForm() {
   const [form, setForm] = useState(defaultForm);
   const [aiSuggested, setAiSuggested] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submittedBlockId, setSubmittedBlockId] = useState<string | null>(null);
+  const createBlockRequest = useMutation(api.blocks.createBlockRequest);
 
   const steps = [
     { label: "Section & Type", icon: MapPin },
@@ -89,12 +95,44 @@ export default function BlockRequestForm() {
     setStep((s) => Math.min(3, s + 1));
   };
 
-  const handleSubmit = () => {
-    const blockId = `BLK-2024-${String(Math.floor(Math.random() * 9000) + 1000)}`;
-    setSubmitted(true);
-    toast.success(`Block request ${blockId} submitted!`, {
-      description: `${form.section} — ${form.workType}. Sent for approval.`,
-    });
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const result = await createBlockRequest({
+        section: form.section,
+        dept:
+          form.workType.includes("OHE")
+            ? "OHE/Electrical"
+            : form.workType.includes("Signal")
+              ? "Signal & Telecom"
+              : "P-Way Engineering",
+        workType: form.workType,
+        requestedBy:
+          sessionStorage.getItem("railblock_user_name") || "Section Engineer (Planner)",
+        requestedByRole: sessionStorage.getItem("railblock_role") || "planner",
+        urgency: form.urgency,
+        blockType: form.blockType,
+        window: `${String(22 + Math.floor(Number(form.duration) / 2)).padStart(2, "0")}:00 – ${String(22 + Number(form.duration)).padStart(2, "0")}:00`,
+        duration: `${form.duration} hours`,
+        aiScore: aiSuggested ? 82 + Math.floor(Math.random() * 14) : undefined,
+        aiRecommended: aiSuggested,
+        aiRationale: aiSuggested
+          ? "Night window with lowest forecasted traffic density; asset health below threshold on this section."
+          : undefined,
+        notes: form.reason || undefined,
+      });
+      setSubmittedBlockId(result.blockId);
+      setSubmitted(true);
+      toast.success(`Block request ${result.blockId} submitted!`, {
+        description: `${form.section} — ${form.workType}. Visible now in Approvals queue.`,
+      });
+    } catch (err) {
+      toast.error("Failed to submit block request", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -112,9 +150,15 @@ export default function BlockRequestForm() {
             <CheckCircle2 className="w-10 h-10 text-chart-3" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Block Request Submitted!</h2>
-          <p className="text-muted-foreground max-w-md mx-auto mb-6">
+          <p className="text-muted-foreground max-w-md mx-auto mb-2">
             Your request for <strong>{form.section}</strong> has been submitted for approval. You&apos;ll receive a notification once it&apos;s reviewed.
           </p>
+          {submittedBlockId && (
+            <p className="text-sm mb-4">
+              <span className="font-mono font-bold text-primary">{submittedBlockId}</span>
+              <span className="text-muted-foreground"> — track it in the Approvals queue</span>
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto mb-8">
             <div className="p-3 rounded-xl bg-card border border-border/50">
               <div className="text-xs text-muted-foreground">Section</div>

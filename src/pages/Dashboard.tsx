@@ -11,6 +11,8 @@ import ApprovalInbox from "@/components/dashboard/ApprovalInbox";
 import AnalyticsDashboard from "@/components/dashboard/AnalyticsDashboard";
 import AssetHealthView from "@/components/dashboard/AssetHealthView";
 import LiveTrainsPanel from "@/components/dashboard/LiveTrainsPanel";
+import FieldCrewView from "@/components/dashboard/FieldCrewView";
+import AuditTrailView from "@/components/dashboard/AuditTrailView";
 import {
   TrendingUp,
   Plus,
@@ -186,6 +188,10 @@ export default function Dashboard() {
         return <AnalyticsDashboard />;
       case "/dashboard/assets":
         return <AssetHealthView />;
+      case "/dashboard/field-crew":
+        return <FieldCrewView />;
+      case "/dashboard/audit":
+        return <AuditTrailView />;
       default:
         return <DashboardHome />;
     }
@@ -318,6 +324,8 @@ function getPageTitle(path: string) {
     "/dashboard/approvals": "Approval Workflow",
     "/dashboard/analytics": "Analytics & Reports",
     "/dashboard/assets": "Asset Health Registry",
+    "/dashboard/field-crew": "Field Crew — Mobile View",
+    "/dashboard/audit": "Audit Trail & Compliance",
   };
   return titles[path] || "Command Center";
 }

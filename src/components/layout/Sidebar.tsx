@@ -10,6 +10,8 @@ import {
   BarChart3,
   Heart,
   Radio,
+  ClipboardCheck,
+  ScrollText,
   Settings,
   ChevronLeft,
   LogOut,
@@ -26,6 +28,8 @@ const navItems = [
   { icon: Shield, label: "Approvals", path: "/dashboard/approvals" },
   { icon: BarChart3, label: "Analytics", path: "/dashboard/analytics" },
   { icon: Heart, label: "Asset Health", path: "/dashboard/assets" },
+  { icon: ClipboardCheck, label: "Field Crew", path: "/dashboard/field-crew" },
+  { icon: ScrollText, label: "Audit Trail", path: "/dashboard/audit" },
 ];
 
 interface SidebarProps {
