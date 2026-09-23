@@ -359,3 +359,68 @@ html {
 .slow-spin {
   animation: slow-spin 24s linear infinite;
 }
+
+/* ===== RUNNING TRAIN STRIP (landing page) ===== */
+
+/* Journey on the same 12s signal cycle as the 3D hero scene:
+   0–4s  approach + brake to the signal (green)
+   4–8s  held at the red signal over the maintenance block
+   8–12s block clears, accelerates away (amber)            */
+@keyframes rb-journey {
+  0%     { transform: translateX(-980px); }
+  33.33% { transform: translateX(510px); }
+  66.66% { transform: translateX(510px); }
+  100%   { transform: translateX(2100px); }
+}
+.rb-train-anchor {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  width: 900px;
+  height: 150px;
+  animation: rb-journey 12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+.rb-train-scale {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: scaleY(0.82);
+  transform-origin: 50% 100%;
+}
+
+/* Spinning wheels */
+@keyframes rb-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.rb-wheel {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rb-spin 0.5s linear infinite;
+}
+
+/* Speed streaks — fade out while the train is held */
+@keyframes rb-streaks {
+  0%, 32% { opacity: 1; }
+  36%, 62% { opacity: 0; }
+  68%, 100% { opacity: 1; }
+}
+.rb-streaks {
+  animation: rb-streaks 12s linear infinite;
+}
+
+/* Headlight beam — dim while detained, blazing while running */
+@keyframes rb-beam {
+  0%, 32% { opacity: 1; }
+  36%, 62% { opacity: 0.25; }
+  68%, 100% { opacity: 1; }
+}
+.rb-beam {
+  animation: rb-beam 12s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-train-anchor { animation: none; transform: translateX(-980px); }
+  .rb-wheel { animation: none; }
+}

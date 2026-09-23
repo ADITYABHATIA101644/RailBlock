@@ -22,6 +22,7 @@ import TiltCard from "@/components/ui/tilt-card";
 const RailwayScene = lazy(() => import("@/components/three/RailwayScene"));
 const GlobeScene = lazy(() => import("@/components/three/GlobeScene"));
 const ProblemHUD = lazy(() => import("@/components/hero/ProblemHUD"));
+const RunningTrain = lazy(() => import("@/components/hero/RunningTrain"));
 
 function SceneFallback() {
   return (
@@ -334,6 +335,11 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      {/* ===== RUNNING TRAIN — 2D express crossing the page on the live signal cycle ===== */}
+      <Suspense fallback={null}>
+        <RunningTrain />
+      </Suspense>
 
       {/* ===== PROBLEM ===== */}
       <section className="relative py-24 px-6 bg-background">
