@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/input-otp";
 import { useAuth } from "@/hooks/use-auth";
 import { ArrowRight, Loader2, Mail, UserX, Train, Shield, ChevronRight } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+
+const GlobeScene = lazy(() => import("@/components/three/GlobeScene"));
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -164,21 +166,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const selectedRoleData = railwayRoles.find(r => r.id === selectedRole);
 
   return (
-    <div className="min-h-screen flex items-center justify-center rail-gradient relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute inset-0 opacity-20">
-        <div
-          className="absolute inset-0 animate-grid-scroll"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, transparent, transparent 39px, oklch(0.75 0.15 55 / 0.08) 39px, oklch(0.75 0.15 55 / 0.08) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, oklch(0.75 0.15 55 / 0.08) 39px, oklch(0.75 0.15 55 / 0.08) 40px)",
-          }}
-        />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0b0c0e 0%, #0e111b 55%, #0d172b 100%)" }}>
+      {/* 3D globe backdrop */}
+      <div className="absolute inset-0 opacity-60 pointer-events-none">
+        <Suspense fallback={null}>
+          <GlobeScene />
+        </Suspense>
       </div>
 
-      {/* Floating orbs */}
-      <div className="absolute top-[20%] left-[15%] w-64 h-64 rounded-full bg-primary/10 blur-[100px] animate-float" />
-      <div className="absolute bottom-[20%] right-[15%] w-80 h-80 rounded-full bg-chart-4/8 blur-[120px] animate-float-delayed" />
+      {/* Aurora glows */}
+      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20 pointer-events-none" style={{ background: "radial-gradient(circle, rgba(98,95,255,0.4) 0%, transparent 70%)" }} />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-15 pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,125,218,0.35) 0%, transparent 70%)" }} />
 
       {/* Left side branding */}
       <div className="hidden lg:flex absolute left-16 top-1/2 -translate-y-1/2 flex-col gap-8 max-w-sm z-10">
@@ -204,7 +202,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       </div>
 
       {/* Auth Card */}
-      <Card className="min-w-[380px] max-w-[480px] border border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl relative z-10">
+      <Card className="min-w-[380px] max-w-[480px] relative z-10" style={{ background: "rgba(13,23,43,0.88)", border: "1px solid #24375a", backdropFilter: "blur(24px)", boxShadow: "rgba(0,0,0,0.5) 0px 4px 30px 0px" }}>
         {/* Step: Role Selection */}
         {step === "roleSelect" && (
           <>

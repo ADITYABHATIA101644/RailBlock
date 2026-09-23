@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import { useAuth } from "@/hooks/use-auth";
 import Sidebar from "@/components/layout/Sidebar";
 import ChatAgent from "@/components/ai/ChatAgent";
+import TiltCard from "@/components/ui/tilt-card";
 import RailwayMapView from "@/components/dashboard/RailwayMapView";
 import BlockRequestForm from "@/components/dashboard/BlockRequestForm";
 import AIRecommendations from "@/components/dashboard/AIRecommendations";
@@ -339,9 +340,10 @@ function DashboardHome() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map((kpi, i) => (
-          <div
+          <TiltCard
             key={i}
-            className="rounded-2xl p-5 border border-border/50 bg-card hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:scale-[1.01]"
+            className="glow-card shimmer-card rounded-2xl p-5 border border-border/50 bg-card"
+            maxTilt={5}
           >
             <div className="flex items-center justify-between mb-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${kpi.color}`}>
@@ -352,7 +354,7 @@ function DashboardHome() {
             <div className="text-3xl font-bold mb-1">{kpi.value}</div>
             <div className="text-sm text-muted-foreground">{kpi.label}</div>
             <div className="text-xs text-chart-3 mt-1 font-medium">{kpi.change}</div>
-          </div>
+          </TiltCard>
         ))}
       </div>
 

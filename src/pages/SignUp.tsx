@@ -18,9 +18,11 @@ import {
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ArrowRight, Loader2, Mail, Lock, User, Train, Shield, Eye, EyeOff } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
+
+const GlobeScene = lazy(() => import("@/components/three/GlobeScene"));
 
 const railwayRoles = [
   { id: "admin", label: "DRM / Admin" },
@@ -128,9 +130,16 @@ function SignUp() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0b0c0e 0%, #0e111b 50%, #0d172b 100%)' }}>
+      {/* 3D globe backdrop */}
+      <div className="absolute inset-0 opacity-60 pointer-events-none">
+        <Suspense fallback={null}>
+          <GlobeScene />
+        </Suspense>
+      </div>
+
       {/* Aurora glows */}
-      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(98,95,255,0.4) 0%, transparent 70%)' }} />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, rgba(255,125,218,0.35) 0%, transparent 70%)' }} />
+      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(98,95,255,0.4) 0%, transparent 70%)' }} />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,125,218,0.35) 0%, transparent 70%)' }} />
 
       {/* Left branding */}
       <div className="hidden lg:flex absolute left-16 top-1/2 -translate-y-1/2 flex-col gap-8 max-w-sm z-10">
@@ -158,7 +167,7 @@ function SignUp() {
       </div>
 
       {/* Sign Up Card */}
-      <Card className="min-w-[420px] max-w-[520px] relative z-10" style={{ background: 'rgba(13,23,43,0.85)', border: '1px solid #172540', backdropFilter: 'blur(20px)' }}>
+      <Card className="min-w-[420px] max-w-[520px] relative z-10" style={{ background: 'rgba(13,23,43,0.88)', border: '1px solid #24375a', backdropFilter: 'blur(24px)', boxShadow: 'rgba(0,0,0,0.5) 0px 4px 30px 0px' }}>
         <CardHeader className="text-center pt-8">
           <div className="flex justify-center mb-4">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(40,98,215,0.15)', border: '1px solid rgba(40,98,215,0.3)' }}>

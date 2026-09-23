@@ -284,3 +284,78 @@ html {
 .font-mono-code {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
 }
+
+/* ===== 3D / DYNAMIC UI POLISH ===== */
+
+/* Animated aurora gradient border on hover — for feature cards */
+.glow-card {
+  position: relative;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.glow-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(98, 95, 255, 0.7), rgba(255, 125, 218, 0.5), rgba(40, 98, 215, 0.7));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.glow-card:hover {
+  transform: translateY(-4px);
+  box-shadow: rgba(98, 95, 255, 0.25) 0px 12px 40px -8px, rgba(0, 0, 0, 0.5) 0px 4px 30px 0px;
+}
+.glow-card:hover::before {
+  opacity: 1;
+}
+
+/* 3D tilt on hover (pair with JS mouse handlers) */
+.tilt-card {
+  transform-style: preserve-3d;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+/* Shimmer sweep across cards */
+.shimmer-card {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.7s ease;
+  pointer-events: none;
+}
+.shimmer-card:hover::after {
+  left: 130%;
+}
+
+/* Breathing aurora orb */
+@keyframes aurora-breathe {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.12); }
+}
+.aurora-breathe {
+  animation: aurora-breathe 7s ease-in-out infinite;
+}
+
+/* Slow spin for 3D accent rings */
+@keyframes slow-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.slow-spin {
+  animation: slow-spin 24s linear infinite;
+}
