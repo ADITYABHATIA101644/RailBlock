@@ -23,6 +23,7 @@ const RailwayScene = lazy(() => import("@/components/three/RailwayScene"));
 const GlobeScene = lazy(() => import("@/components/three/GlobeScene"));
 const ProblemHUD = lazy(() => import("@/components/hero/ProblemHUD"));
 const RunningTrain = lazy(() => import("@/components/hero/RunningTrain"));
+const ImmersiveNetworkLab = lazy(() => import("@/components/three/ImmersiveNetworkLab"));
 
 function SceneFallback() {
   return (
@@ -491,6 +492,11 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ===== NEW IMMERSIVE DIGITAL TWIN — additional scroll depth, existing content preserved ===== */}
+      <Suspense fallback={null}>
+        <ImmersiveNetworkLab />
+      </Suspense>
 
       {/* ===== CTA — 3D globe finale ===== */}
       <section className="relative py-24 px-6 overflow-hidden" style={{ background: "#0b0c0e" }}>
