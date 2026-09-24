@@ -371,9 +371,8 @@ export const validateSession = mutation({
     // Update last access
     await ctx.db.patch(session._id, { lastAccessAt: Date.now() });
 
-    // Look up the user who owns this session
-    const allUsers = await ctx.db.query("users").collect();
-    const user = allUsers.find((u) => u._id === session.userId);
+    // Look up the user who owns this session (direct ID lookup, no scan)
+    const user = await ctx.db.get(session.userId);
     if (!user) return null;
 
     return {

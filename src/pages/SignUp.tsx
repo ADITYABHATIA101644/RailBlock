@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { classifyAuthError } from "@/lib/auth-errors";
+import { runWithRetry } from "@/lib/mutation-retry";
 import { ArrowRight, Loader2, Mail, Lock, User, Train, Shield, Eye, EyeOff } from "lucide-react";
 import { Suspense, lazy, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -60,6 +62,7 @@ function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   // Form fields
   const [name, setName] = useState("");
@@ -102,18 +105,29 @@ function SignUp() {
     }
 
     setIsLoading(true);
+    setRetrying(false);
     try {
-      await signUpMutation({
-        email: email.toLowerCase().trim(),
-        password,
-        name: name.trim(),
-        role: role as "admin" | "approver" | "planner" | "field" | "viewer",
-        department: department || undefined,
-        division: division || undefined,
-        zone: zone || undefined,
-        ip: undefined,
-        userAgent: navigator.userAgent,
-      });
+      // Auto-retry transient backend/network failures — same policy as login.
+      await runWithRetry(
+        () =>
+          signUpMutation({
+            email: email.toLowerCase().trim(),
+            password,
+            name: name.trim(),
+            role: role as "admin" | "approver" | "planner" | "field" | "viewer",
+            department: department || undefined,
+            division: division || undefined,
+            zone: zone || undefined,
+            ip: undefined,
+            userAgent: navigator.userAgent,
+          }),
+        {
+          shouldRetry: (err) => classifyAuthError(err).retryable,
+          onRetry: () => setRetrying(true),
+          maxAttempts: 3,
+        },
+      );
+      setRetrying(false);
 
       toast.success("Account created successfully!", {
         description: "You can now sign in with your credentials.",
@@ -121,8 +135,8 @@ function SignUp() {
 
       navigate("/login");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Sign up failed. Please try again.";
-      setError(msg);
+      setRetrying(false);
+      setError(classifyAuthError(err).message);
     } finally {
       setIsLoading(false);
     }
@@ -346,6 +360,14 @@ function SignUp() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Retry indicator */}
+            {retrying && (
+              <div className="flex items-center justify-center gap-2 text-xs" style={{ color: '#85a6e9' }}>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Reconnecting to the railway backend…
+              </div>
+            )}
 
             {error && (
               <div className="p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444' }}>

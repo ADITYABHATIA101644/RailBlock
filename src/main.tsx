@@ -7,6 +7,7 @@ import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { Train } from "lucide-react";
 import "./index.css";
 
 // Lazy load route components for better code splitting
@@ -82,7 +83,35 @@ class RootErrorBoundary extends React.Component<
   }
 }
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined;
+
+/** Shown when the Convex deployment URL env var is missing/misconfigured. */
+function ConvexConfigError() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="max-w-lg text-center space-y-3">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-destructive/10 border border-destructive/30 flex items-center justify-center">
+          <Train className="w-7 h-7 text-destructive" />
+        </div>
+        <h1 className="text-xl font-bold text-foreground">Backend not configured</h1>
+        <p className="text-sm text-muted-foreground">
+          The Convex deployment URL (<code className="font-mono-code">VITE_CONVEX_URL</code>) is missing.
+          Sign-in, sign-up and all live data are unavailable until it is set in the app's environment settings.
+        </p>
+        <a
+          href="https://dashboard.convex.dev"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 rounded-full bg-white text-[#050606] text-sm font-semibold hover:bg-white/90 transition-colors"
+        >
+          Open Convex Dashboard
+        </a>
+      </div>
+    </div>
+  );
+}
+
+const convex = new ConvexReactClient(convexUrl ?? "https://convex.invalid");
 
 
 
@@ -116,7 +145,8 @@ createRoot(document.getElementById("root")!).render(
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
+      {convexUrl ? (
+        <ConvexAuthProvider client={convex}>
         <BrowserRouter>
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
@@ -147,7 +177,10 @@ createRoot(document.getElementById("root")!).render(
           </Suspense>
         </BrowserRouter>
         <Toaster />
-      </ConvexAuthProvider>
+        </ConvexAuthProvider>
+      ) : (
+        <ConvexConfigError />
+      )}
     </RootErrorBoundary>
   </StrictMode>,
 );

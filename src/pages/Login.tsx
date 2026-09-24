@@ -10,6 +10,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { classifyAuthError } from "@/lib/auth-errors";
+import { runWithRetry } from "@/lib/mutation-retry";
 import { ArrowRight, Loader2, Mail, Lock, Train, Shield, Eye, EyeOff } from "lucide-react";
 import { Suspense, lazy, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -28,19 +30,32 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+    setRetrying(false);
 
     try {
-      const result = await loginMutation({
-        email: email.toLowerCase().trim(),
-        password,
-        ip: undefined,
-        userAgent: navigator.userAgent,
-      });
+      // Auto-retry transient backend/network failures so a flaky connection
+      // doesn't surface a scary raw Convex error to the user.
+      const result = await runWithRetry(
+        () =>
+          loginMutation({
+            email: email.toLowerCase().trim(),
+            password,
+            ip: undefined,
+            userAgent: navigator.userAgent,
+          }),
+        {
+          shouldRetry: (err) => classifyAuthError(err).retryable,
+          onRetry: () => setRetrying(true),
+          maxAttempts: 3,
+        },
+      );
+      setRetrying(false);
 
       // Store session
       localStorage.setItem("railblock_session_token", result.sessionToken);
@@ -60,19 +75,20 @@ function Login() {
           : "/dashboard";
       navigate(destination);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Login failed";
-      setError(msg);
+      setRetrying(false);
+      const classified = classifyAuthError(err);
+      setError(classified.message);
 
-      // Parse remaining attempts from error message
-      const match = msg.match(/(\d+) attempt/);
-      if (match) {
-        setAttemptsRemaining(parseInt(match[1]));
-      }
-
-      if (msg.includes("locked")) {
+      if (classified.locked) {
         toast.error("Account Locked", {
-          description: msg,
+          description: classified.raw,
         });
+      } else {
+        // Parse remaining attempts from error message
+        const match = classified.raw.match(/(\d+) attempt/);
+        if (match) {
+          setAttemptsRemaining(parseInt(match[1]));
+        }
       }
     } finally {
       setIsLoading(false);
@@ -184,6 +200,14 @@ function Login() {
             {attemptsRemaining !== null && attemptsRemaining <= 3 && (
               <div className="p-2 rounded-lg text-xs" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B' }}>
                 {attemptsRemaining} attempt{attemptsRemaining !== 1 ? "s" : ""} remaining before account lockout
+              </div>
+            )}
+
+            {/* Retry indicator */}
+            {retrying && (
+              <div className="flex items-center justify-center gap-2 text-xs" style={{ color: '#85a6e9' }}>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Reconnecting to the railway backend…
               </div>
             )}
 
