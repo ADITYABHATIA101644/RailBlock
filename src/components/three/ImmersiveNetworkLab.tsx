@@ -3,7 +3,6 @@ import { Float } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Activity, Box, ChevronRight, CircleDot, Network, Orbit, Radio, ScanLine, Sparkles } from "lucide-react";
 import * as THREE from "three";
-import { useInView } from "react-intersection-observer";
 
 /**
  * ImmersiveNetworkLab is intentionally mounted after the existing landing-page
@@ -20,9 +19,31 @@ function SceneFallback({ label }: { label: string }) {
 }
 
 function LazyScene({ label, children }: { label: string; children: ReactNode }) {
-  const { ref, inView } = useInView({ threshold: 0.12, triggerOnce: true });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.12 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div ref={ref} className="absolute inset-0">
+    <div ref={containerRef} className="absolute inset-0">
       {inView ? (
         <Suspense fallback={<SceneFallback label={label} />}>
           {children}

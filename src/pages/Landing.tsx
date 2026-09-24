@@ -24,6 +24,7 @@ const GlobeScene = lazy(() => import("@/components/three/GlobeScene"));
 const ProblemHUD = lazy(() => import("@/components/hero/ProblemHUD"));
 const RunningTrain = lazy(() => import("@/components/hero/RunningTrain"));
 const ImmersiveNetworkLab = lazy(() => import("@/components/three/ImmersiveNetworkLab"));
+const HeroRailTrack = lazy(() => import("@/components/hero/HeroRailTrack"));
 
 function SceneFallback() {
   return (
@@ -139,6 +140,11 @@ export default function Landing() {
               "radial-gradient(28% 22% at 72% 103%, rgba(255,125,218,0.33) 0px, rgba(0,0,0,0) 100%)",
           }}
         />
+
+        {/* Advanced perspective rail system behind the opening composition */}
+        <Suspense fallback={null}>
+          <HeroRailTrack />
+        </Suspense>
 
         {/* Top nav bar — floating glass pill */}
         <motion.nav
