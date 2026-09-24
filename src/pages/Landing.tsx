@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { Suspense, lazy, useRef } from "react";
 import {
   Train,
@@ -115,8 +115,6 @@ const problems = [
 export default function Landing() {
   const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll();
-  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
 
   return (
     <div className="min-h-screen overflow-x-hidden dark">      {/* ===== HERO — unova-style split with live 3D scene ===== */}

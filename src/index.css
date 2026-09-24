@@ -363,14 +363,26 @@ html {
 /* ===== RUNNING TRAIN STRIP (landing page) ===== */
 
 /* Journey on the same 12s signal cycle as the 3D hero scene:
-   0–4s  approach + brake to the signal (green)
-   4–8s  held at the red signal over the maintenance block
-   8–12s block clears, accelerates away (amber)            */
+   0–4s   held at the red signal over the maintenance block (--rb-stop)
+   4–8s   block clears, departs right with caution (--rb-exit)
+   8–12s  line clear; re-enters from the left and brakes to a stop
+          at the signal exactly as the cycle wraps back to red        */
 @keyframes rb-journey {
-  0%     { transform: translateX(-980px); }
-  33.33% { transform: translateX(510px); }
-  66.66% { transform: translateX(510px); }
-  100%   { transform: translateX(2100px); }
+  0%, 33.32% {
+    transform: translateX(var(--rb-stop, 510px));
+    animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1);
+  }
+  87.9% {
+    transform: translateX(var(--rb-exit, 2200px));
+    animation-timing-function: linear;
+  }
+  87.92% {
+    transform: translateX(var(--rb-entry, -1000px));
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  100% {
+    transform: translateX(var(--rb-stop, 510px));
+  }
 }
 .rb-train-anchor {
   position: absolute;
@@ -378,7 +390,7 @@ html {
   left: 0;
   width: 900px;
   height: 150px;
-  animation: rb-journey 12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation: rb-journey 12s linear infinite;
   will-change: transform;
 }
 .rb-train-scale {
@@ -400,11 +412,12 @@ html {
   animation: rb-spin 0.5s linear infinite;
 }
 
-/* Speed streaks — fade out while the train is held */
+/* Speed streaks — hidden while held at the signal, on while moving */
 @keyframes rb-streaks {
-  0%, 32% { opacity: 1; }
-  36%, 62% { opacity: 0; }
-  68%, 100% { opacity: 1; }
+  0%, 34% { opacity: 0; }
+  42%, 86% { opacity: 1; }
+  88% { opacity: 0; }
+  94%, 100% { opacity: 1; }
 }
 .rb-streaks {
   animation: rb-streaks 12s linear infinite;
@@ -412,15 +425,16 @@ html {
 
 /* Headlight beam — dim while detained, blazing while running */
 @keyframes rb-beam {
-  0%, 32% { opacity: 1; }
-  36%, 62% { opacity: 0.25; }
-  68%, 100% { opacity: 1; }
+  0%, 33% { opacity: 0.25; }
+  38%, 86% { opacity: 1; }
+  88% { opacity: 0.25; }
+  93%, 100% { opacity: 1; }
 }
 .rb-beam {
   animation: rb-beam 12s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rb-train-anchor { animation: none; transform: translateX(-980px); }
+  .rb-train-anchor { animation: none; transform: translateX(var(--rb-stop, 510px)); }
   .rb-wheel { animation: none; }
 }

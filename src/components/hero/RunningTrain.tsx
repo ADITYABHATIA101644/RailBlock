@@ -1,14 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import {
+  aspectForTick,
+  redCountdown,
+  trainPhaseForSecond,
+  type SignalAspect,
+} from "@/lib/signal-cycle";
 
 /**
  * RunningTrain — a 2D train crossing the landing page UI itself.
  *
  * A WAP-7 electric loco + 3 coaches runs along a full-width track strip and
  * obeys the section signal on the same 12s cycle as the 3D hero scene:
- *   0–4s  green  — approaches the signal and brakes to a stop
- *   4–8s  red    — held at the maintenance block (beacon + brake glow)
- *   8–12s amber  — block clears, accelerates away
+ *   0–4s  red   — held at the signal over the maintenance block
+ *   4–8s  amber — block clears, proceeds with caution
+ *   8–12s green — line clear; re-enters and approaches for the next cycle
  *
  * Pure CSS keyframes (see .rb-* utilities in index.css) drive the journey,
  * wheel spin and speed streaks; React state only drives signal colors and
@@ -16,6 +22,12 @@ import { motion } from "framer-motion";
  */
 
 const SIGNAL_POS = "62%";
+
+const ASPECT_COLOR: Record<SignalAspect, string> = {
+  red: "#ef4444",
+  amber: "#f59e0b",
+  green: "#22c55e",
+};
 
 function Wheel({ cx }: { cx: number }) {
   return (
@@ -46,15 +58,7 @@ function Coach({ x }: { x: number }) {
   );
 }
 
-type Aspect = "red" | "amber" | "green";
-
-const ASPECT_COLOR: Record<Aspect, string> = {
-  red: "#ef4444",
-  amber: "#f59e0b",
-  green: "#22c55e",
-};
-
-function Signal({ aspect, countdown }: { aspect: Aspect; countdown: number | null }) {
+function Signal({ aspect, countdown }: { aspect: SignalAspect; countdown: number | null }) {
   return (
     <div className="absolute z-30" style={{ left: SIGNAL_POS, bottom: 36 }}>
       {/* Mast */}
@@ -75,7 +79,7 @@ function Signal({ aspect, countdown }: { aspect: Aspect; countdown: number | nul
           boxShadow: "rgba(0,0,0,0.5) 0px 4px 14px 0px",
         }}
       >
-        {(["red", "amber", "green"] as Aspect[]).map((name) => {
+        {(["red", "amber", "green"] as SignalAspect[]).map((name) => {
           const on = aspect === name;
           const c = ASPECT_COLOR[name];
           return (
@@ -111,22 +115,87 @@ function Signal({ aspect, countdown }: { aspect: Aspect; countdown: number | nul
   );
 }
 
+function RunningStatusChip({
+  phase,
+  countdown,
+}: {
+  phase: ReturnType<typeof trainPhaseForSecond>;
+  countdown: number | null;
+}) {
+  if (countdown !== null) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 backdrop-blur-md"
+        style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.4)" }}
+      >
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "#ef4444" }} />
+        <span className="text-[10px] font-semibold tracking-wider font-mono-code" style={{ color: "#f87171" }}>
+          HELD — BLOCK AHEAD · CLEARS IN {countdown}s
+        </span>
+      </motion.div>
+    );
+  }
+  const copy =
+    phase === "departing"
+      ? "PROCEED WITH CAUTION · 60 KM/H"
+      : "APPROACHING SIGNAL · 90 KM/H";
+  const color = phase === "departing" ? "#4ade80" : "#fbbf24";
+  const dot = phase === "departing" ? "#22c55e" : "#f59e0b";
+  return (
+    <div
+      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 backdrop-blur-md"
+      style={{
+        background: phase === "departing" ? "rgba(34,197,94,0.08)" : "rgba(245,158,11,0.1)",
+        border: `1px solid ${phase === "departing" ? "rgba(34,197,94,0.25)" : "rgba(245,158,11,0.3)"}`,
+      }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+      <span className="text-[10px] font-semibold tracking-wider font-mono-code" style={{ color }}>
+        {copy}
+      </span>
+    </div>
+  );
+}
+
 export default function RunningTrain() {
-  const [phase, setPhase] = useState(0);
+  const [tick, setTick] = useState(0);
+  const stripRef = useRef<HTMLElement | null>(null);
 
   // 1s heartbeat — synced to the 3D scene's 12s signal cycle
   useEffect(() => {
-    const t = setInterval(() => setPhase((p) => (p + 1) % 12), 1000);
+    const t = setInterval(() => setTick((v) => v + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const held = phase >= 4 && phase < 8;
-  const aspect: Aspect = phase < 4 ? "green" : phase < 8 ? "red" : "amber";
+  // Viewport-adaptive journey: the loco nose (SVG x≈891 of 900) stops just
+  // before the signal mast at SIGNAL_POS (62% of strip width), exits right,
+  // and re-enters fully off the left edge — regardless of viewport width.
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const apply = () => {
+      const w = el.clientWidth;
+      el.style.setProperty("--rb-stop", `${Math.max(0.62 * w - 899, 120)}px`);
+      el.style.setProperty("--rb-exit", `${w + 80}px`);
+      el.style.setProperty("--rb-entry", "-980px");
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const aspect = aspectForTick(tick);
+  const phase = trainPhaseForSecond(tick);
+  const countdown = redCountdown(tick); // non-null exactly while held at the signal
   const aspectColor = ASPECT_COLOR[aspect];
 
   return (
     <section
-      className="relative h-[230px] w-full overflow-hidden"
+      ref={stripRef}
+      className="rb-strip relative h-[230px] w-full overflow-hidden"
       style={{ background: "#0b0c0e", borderTop: "1px solid #172540", borderBottom: "1px solid #172540" }}
     >
       {/* Aurora bleed — matches the hero glows */}
@@ -184,7 +253,7 @@ export default function RunningTrain() {
       />
 
       {/* Section signal standing over the maintenance block */}
-      <Signal aspect={aspect} countdown={held ? 8 - phase : null} />
+      <Signal aspect={aspect} countdown={countdown} />
 
       {/* The train — CSS keyframes drive the journey; this element just anchors it */}
       <div className="rb-train-anchor pointer-events-none">
@@ -211,29 +280,7 @@ export default function RunningTrain() {
 
           {/* Status HUD floating above the loco */}
           <div className="absolute -top-10 right-0 whitespace-nowrap">
-            {held ? (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 backdrop-blur-md"
-                style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.4)" }}
-              >
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "#ef4444" }} />
-                <span className="text-[10px] font-semibold tracking-wider font-mono-code" style={{ color: "#f87171" }}>
-                  HELD — BLOCK AHEAD · CLEARS IN {8 - phase}s
-                </span>
-              </motion.div>
-            ) : (
-              <div
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 backdrop-blur-md"
-                style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#22c55e" }} />
-                <span className="text-[10px] font-semibold tracking-wider font-mono-code" style={{ color: "#4ade80" }}>
-                  LINE CLEAR · 110 KM/H
-                </span>
-              </div>
-            )}
+            <RunningStatusChip phase={phase} countdown={countdown} />
           </div>
 
           {/* Train SVG — WAP-7 loco + 3 coaches */}
@@ -279,8 +326,8 @@ export default function RunningTrain() {
               cy={33}
               r={4.5}
               fill="#ef4444"
-              opacity={held ? 1 : 0.25}
-              className={held ? "animate-pulse" : undefined}
+              opacity={countdown !== null ? 1 : 0.25}
+              className={countdown !== null ? "animate-pulse" : undefined}
             />
             {/* Windshield + stripe + number plate */}
             <polygon points="842,46 858,46 872,60 878,76 846,76" fill="#85a6e9" opacity={0.75} />
@@ -306,7 +353,7 @@ export default function RunningTrain() {
               rx={150}
               ry={8}
               fill="#ef4444"
-              opacity={held ? 0.35 : 0}
+              opacity={countdown !== null ? 0.35 : 0}
               style={{ transition: "opacity 0.8s ease" }}
             />
 

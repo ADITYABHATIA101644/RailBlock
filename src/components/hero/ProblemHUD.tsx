@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { aspectForTick, redCountdown } from "@/lib/signal-cycle";
 import {
   AlertTriangle,
-  Clock,
   Train as TrainIcon,
   Radio,
   TrendingDown,
   IndianRupee,
-  RefreshCw,
 } from "lucide-react";
 
 /**
@@ -88,14 +87,14 @@ export default function ProblemHUD() {
 
   const baseDelay = parseDelayMinutes(train.currentStation?.delay);
   // Detention grows while signal is RED (phase 0 of the 12s cycle, matching the 3D scene)
-  const cycleSecond = tick % 12;
-  const signalAspect = cycleSecond < 4 ? "red" : cycleSecond < 8 ? "amber" : "green";
+  const signalAspect = aspectForTick(tick);
   const detaining = signalAspect === "red";
   const detentionMin = baseDelay + Math.floor(tick / 60); // +1 min per real minute held
 
   // Industry benchmark: ~₹90/min detention cost for an express (conservative)
   const lossRs = detentionMin * 90;
   const trainsHeld = detaining ? 3 : 1; // simulated cascade count
+  const redLeft = redCountdown(tick);
 
   const aspectColor =
     signalAspect === "red" ? "#ef4444" : signalAspect === "amber" ? "#f59e0b" : "#22c55e";
@@ -178,7 +177,9 @@ export default function ProblemHUD() {
                 {detaining ? "Signal RED — train held" : "Signal GREEN — line clear"}
               </div>
               <div className="text-[10px]" style={{ color: "#abaebb" }}>
-                {detaining ? `maintenance block ahead · ${trainsHeld} trains waiting` : "block work in progress"}
+                {detaining
+                ? `maintenance block ahead${redLeft !== null ? ` · clears in ${redLeft}s` : ""} · ${trainsHeld} trains waiting`
+                : "block work in progress"}
               </div>
             </div>
             <div className="text-right shrink-0">
