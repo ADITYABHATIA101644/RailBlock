@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 import { ROLES, ROLE_PERMISSIONS } from "./schema";
 import type { Role } from "./schema";
 
@@ -372,8 +373,8 @@ export const validateSession = mutation({
     await ctx.db.patch(session._id, { lastAccessAt: Date.now() });
 
     // Look up the user who owns this session (direct ID lookup, no scan)
-    const user = await ctx.db.get(session.userId);
-    if (!user) return null;
+    const user = await ctx.db.get(session.userId as Id<"users">);
+    if (!user || !('email' in user)) return null;
 
     return {
       userId: user._id,
