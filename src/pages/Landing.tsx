@@ -25,6 +25,7 @@ const ProblemHUD = lazy(() => import("@/components/hero/ProblemHUD"));
 const RunningTrain = lazy(() => import("@/components/hero/RunningTrain"));
 const ImmersiveNetworkLab = lazy(() => import("@/components/three/ImmersiveNetworkLab"));
 const HeroRailTrack = lazy(() => import("@/components/hero/HeroRailTrack"));
+const ScrollDepthScenes = lazy(() => import("@/components/three/ScrollDepthScenes"));
 
 function SceneFallback() {
   return (
@@ -498,6 +499,11 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ===== NEW SCROLL-DEPTH 3D SHOWCASE — additive, existing content preserved ===== */}
+      <Suspense fallback={null}>
+        <ScrollDepthScenes />
+      </Suspense>
 
       {/* ===== NEW IMMERSIVE DIGITAL TWIN — additional scroll depth, existing content preserved ===== */}
       <Suspense fallback={null}>
