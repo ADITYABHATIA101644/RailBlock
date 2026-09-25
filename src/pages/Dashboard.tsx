@@ -14,6 +14,7 @@ import AssetHealthView from "@/components/dashboard/AssetHealthView";
 import LiveTrainsPanel from "@/components/dashboard/LiveTrainsPanel";
 import FieldCrewView from "@/components/dashboard/FieldCrewView";
 import AuditTrailView from "@/components/dashboard/AuditTrailView";
+import GovDataView from "@/components/dashboard/GovDataView";
 import {
   TrendingUp,
   Plus,
@@ -193,6 +194,8 @@ export default function Dashboard() {
         return <FieldCrewView />;
       case "/dashboard/audit":
         return <AuditTrailView />;
+      case "/dashboard/gov-data":
+        return <GovDataView />;
       default:
         return <DashboardHome />;
     }
@@ -327,6 +330,7 @@ function getPageTitle(path: string) {
     "/dashboard/assets": "Asset Health Registry",
     "/dashboard/field-crew": "Field Crew — Mobile View",
     "/dashboard/audit": "Audit Trail & Compliance",
+    "/dashboard/gov-data": "Government Open Data — Ministry of Railways",
   };
   return titles[path] || "Command Center";
 }

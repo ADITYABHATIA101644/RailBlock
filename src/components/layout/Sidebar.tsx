@@ -12,6 +12,7 @@ import {
   Radio,
   ClipboardCheck,
   ScrollText,
+  Database,
   Settings,
   ChevronLeft,
   LogOut,
@@ -30,6 +31,7 @@ const navItems = [
   { icon: Heart, label: "Asset Health", path: "/dashboard/assets" },
   { icon: ClipboardCheck, label: "Field Crew", path: "/dashboard/field-crew" },
   { icon: ScrollText, label: "Audit Trail", path: "/dashboard/audit" },
+  { icon: Database, label: "Gov Data", path: "/dashboard/gov-data" },
 ];
 
 interface SidebarProps {
