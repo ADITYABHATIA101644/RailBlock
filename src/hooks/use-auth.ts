@@ -7,6 +7,13 @@ import { useCallback, useEffect, useState } from "react";
  * Session-token auth (from /login and /signup pages).
  * Validates the token against the Convex `security` backend and returns the
  * user when the session is active. Returns null state when no token exists.
+ *
+ * Resilience: a transient backend/network failure (e.g. the sandbox briefly
+ * returning 502 during a restart) must NOT destroy the stored token — the
+ * session may still be perfectly valid on the server. Only an explicit
+ * "session invalid" response removes it. Transient failures trigger bounded
+ * retries with backoff, plus immediate revalidation when the browser reports
+ * connectivity restored.
  */
 function useSessionAuth() {
   const [sessionUser, setSessionUser] = useState<{
@@ -21,39 +28,68 @@ function useSessionAuth() {
   const [sessionLoading, setSessionLoading] = useState<boolean>(
     () => localStorage.getItem("railblock_session_token") !== null,
   );
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const validateSessionMutation = useMutation(api.security.validateSession);
 
   useEffect(() => {
     const token = localStorage.getItem("railblock_session_token");
     if (!token) {
       setSessionLoading(false);
+      setSessionUnavailable(false);
       return;
     }
     let cancelled = false;
+    // Bounded backoff: 0s, 2s, 4s, 8s, 16s between attempts (6 tries total).
+    const delaysMs = [0, 2000, 4000, 8000, 16000];
+
     (async () => {
-      try {
-        const result = await validateSessionMutation({ sessionToken: token });
+      setSessionLoading(true);
+      for (let attempt = 0; attempt < delaysMs.length; attempt++) {
+        if (delaysMs[attempt] > 0) {
+          await new Promise((r) => setTimeout(r, delaysMs[attempt]));
+        }
         if (cancelled) return;
-        if (result) {
-          setSessionUser(result);
-        } else {
-          // Invalid/expired session — clean up stale token
+        try {
+          const result = await validateSessionMutation({ sessionToken: token });
+          if (cancelled) return;
+          if (result) {
+            setSessionUser(result);
+            setSessionUnavailable(false);
+            setSessionLoading(false);
+            return;
+          }
+          // Server explicitly says the session is invalid/expired — the only
+          // case where deleting the stored token is correct.
           localStorage.removeItem("railblock_session_token");
           setSessionUser(null);
+          setSessionUnavailable(false);
+          setSessionLoading(false);
+          return;
+        } catch {
+          // Transient failure — keep the token and retry after a backoff.
+          if (cancelled) return;
         }
-      } catch {
-        if (!cancelled) {
-          localStorage.removeItem("railblock_session_token");
-          setSessionUser(null);
-        }
-      } finally {
-        if (!cancelled) setSessionLoading(false);
+      }
+      // All retries exhausted: keep the token, surface a reconnect affordance.
+      if (!cancelled) {
+        setSessionUser(null);
+        setSessionUnavailable(true);
+        setSessionLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryNonce]);
+
+  // Revalidate immediately once connectivity is back (or on manual retry).
+  useEffect(() => {
+    const handleOnline = () => setRetryNonce((n) => n + 1);
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
   }, []);
 
   const clearSession = useCallback(() => {
@@ -61,9 +97,12 @@ function useSessionAuth() {
     sessionStorage.removeItem("railblock_role");
     setSessionUser(null);
     setSessionLoading(false);
+    setSessionUnavailable(false);
   }, []);
 
-  return { sessionUser, sessionLoading, clearSession };
+  const retrySession = useCallback(() => setRetryNonce((n) => n + 1), []);
+
+  return { sessionUser, sessionLoading, sessionUnavailable, clearSession, retrySession };
 }
 
 /**
@@ -76,7 +115,7 @@ export function useAuth() {
   const { isLoading: isConvexAuthLoading, isAuthenticated: isConvexAuthed } = useConvexAuth();
   const convexUser = useQuery(api.users.currentUser);
   const { signIn, signOut: convexSignOut } = useAuthActions();
-  const { sessionUser, sessionLoading, clearSession } = useSessionAuth();
+  const { sessionUser, sessionLoading, sessionUnavailable, clearSession, retrySession } = useSessionAuth();
 
   const hasSessionUser = sessionUser !== null;
 
@@ -108,5 +147,7 @@ export function useAuth() {
     user,
     signIn,
     signOut,
+    backendDown: sessionUnavailable,
+    retrySession,
   };
 }

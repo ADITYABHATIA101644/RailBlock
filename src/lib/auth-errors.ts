@@ -62,7 +62,9 @@ export function classifyAuthError(err: unknown): ClassifiedAuthError {
   if (locked) {
     message = raw.includes("minute") ? raw : "Account temporarily locked. Please wait a few minutes and try again.";
   } else if (retryable) {
-    message = "Can't reach the railway backend right now. Retrying automatically…";
+    // Shown only if all automatic retries are exhausted — invite a manual retry
+    // instead of promising one that already happened.
+    message = "Can't reach the railway backend right now. Check your connection and try again.";
   } else if (lower.includes("invalid email or password")) {
     message = "Invalid email or password. Please check your credentials.";
   } else if (lower.includes("already exists")) {
