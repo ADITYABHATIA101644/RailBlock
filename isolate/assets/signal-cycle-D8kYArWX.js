@@ -1,0 +1,1 @@
+function S(C){const E=(C%12+12)%12;return E<4?"red":E<8?"amber":"green"}function n(C){const E=(C%12+12)%12;return E<4?4-E:null}function N(C){const E=(C%12+12)%12;return E<4?"held":E<=10?"departing":"approaching"}export{S as a,n as r,N as t};
