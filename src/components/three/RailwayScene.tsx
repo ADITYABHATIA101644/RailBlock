@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Environment, ContactShadows } from "@react-three/drei";
+import { Float } from "./Float";
 import * as THREE from "three";
 
 /* The REAL railway problem, told in 3D:
@@ -318,15 +318,16 @@ export default function RailwayScene() {
         <BlockZone z={6.5} />
         <DataStream />
 
-        <ContactShadows
-          position={[0, -1.12, 0]}
-          opacity={0.55}
-          scale={16}
-          blur={2.6}
-          far={4}
-          color="#000000"
-        />
-        <Environment preset="night" />
+        <mesh position={[0, -1.12, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
+          <circleGeometry args={[8, 32]} />
+          <meshBasicMaterial
+            transparent
+            opacity={0.5}
+            color="#000000"
+            depthWrite={false}
+          />
+        </mesh>
+        <hemisphereLight args={["#2862d7", "#0b0c0e", 0.5]} />
 
         <Float speed={1.2} rotationIntensity={0.4} floatIntensity={1}>
           <mesh position={[0, 2.6, -4]}>

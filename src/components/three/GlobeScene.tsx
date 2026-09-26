@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Environment } from "@react-three/drei";
+import { Float } from "./Float";
 import * as THREE from "three";
 
 /* Wireframe globe representing the Indian railway network */
@@ -85,7 +85,7 @@ export default function GlobeScene() {
         <Float speed={1.4} rotationIntensity={0.3} floatIntensity={0.9}>
           <NetworkGlobe />
         </Float>
-        <Environment preset="night" />
+        <hemisphereLight args={["#2862d7", "#0b0c0e", 0.55]} />
       </Canvas>
     </div>
   );
