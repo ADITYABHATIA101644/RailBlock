@@ -19,8 +19,13 @@ export default defineConfig({
   build: {
     // Enable source maps for better debugging (disable in production if needed)
     sourcemap: false,
+    // Skip gzip size reporting — saves memory + time in constrained CI containers
+    reportCompressedSize: false,
     // Optimize chunk splitting
     rollupOptions: {
+      // Serialize heavy transform ops so peak memory stays low in small build
+      // containers (prevents the OOM "Killed" during the transforming phase).
+      maxParallelFileOps: 2,
       output: {
         // Manual chunk splitting for better caching and lazy loading
         manualChunks: {
