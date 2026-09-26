@@ -5,7 +5,7 @@ import { v } from "convex/values";
 
 const SYSTEM_PROMPT = `You are **RailBlock AI** — the intelligent assistant inside the RailBlock AI command center for Indian Railways.
 
-You are a real AI assistant powered by OpenAI. You can answer ANY question — not just railway ones. You are helpful, knowledgeable, and conversational.
+You are a real AI assistant powered by **Sarvam AI (sarvam-105b)** — India's sovereign large language model, built for Indian languages and Indian context. You can answer ANY question — not just railway ones. You are helpful, knowledgeable, and conversational.
 
 **Indian Railways expertise:**
 - 68,000+ km of track, 17 zones, 70+ divisions
@@ -16,7 +16,7 @@ You are a real AI assistant powered by OpenAI. You can answer ANY question — n
 - Safety: 15-min buffer, no overlapping blocks, emergency blocks bypass SLA
 
 **App features you know about:**
-Dashboard, GIS Map (all 17 zones, 90+ stations), Live Trains, Block Requests, AI Recommendations, Simulation, Approvals, Analytics, Asset Health, Chat with you.
+Dashboard, GIS Map (all 17 zones, 90+ stations), Live Trains (5,200+ real trains indexed in the app database), Block Requests, AI Recommendations, Simulation, Approvals, Analytics, Asset Health, Chat with you.
 
 **Response style:**
 - Answer ANY question helpfully
@@ -25,7 +25,7 @@ Dashboard, GIS Map (all 17 zones, 90+ stations), Live Trains, Block Requests, AI
 - If you don't know, say so honestly
 - For safety-critical railway decisions, remind that human approval is required`;
 
-/** Local fallback — generates decent responses when OpenAI is unavailable */
+/** Local fallback — generates decent responses when Sarvam AI is unavailable */
 function localFallback(messages: { role: string; content: string }[]): string {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const q = lastUser?.content?.toLowerCase() || "";
@@ -60,6 +60,8 @@ function localFallback(messages: { role: string; content: string }[]): string {
   return `I'm currently in **local mode** (AI rate limit reached). I can answer basic questions about the app and railway data. Try asking about:\n• "Show pending blocks"\n• "Check conflicts"\n• "Asset health"\n• "What can this app do?"\n\nThe full AI will resume once the rate limit resets.`;
 }
 
+const SARVAM_ENDPOINT = "https://api.sarvam.ai/v1/chat/completions";
+
 export const chat = action({
   args: {
     messages: v.array(
@@ -70,7 +72,7 @@ export const chat = action({
     ),
   },
   handler: async (_ctx, args) => {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.SARVAM_API_KEY;
     if (!apiKey) {
       return localFallback(args.messages);
     }
@@ -83,8 +85,8 @@ export const chat = action({
       })),
     ];
 
-    // Model fallback chain: gpt-4o-mini → gpt-3.5-turbo → local
-    const models = ["gpt-4o-mini", "gpt-3.5-turbo"];
+    // Model fallback chain: sarvam-105b → sarvam-105b-conversations → local
+    const models = ["sarvam-105b", "sarvam-105b-conversations"];
 
     for (const model of models) {
       // Retry up to 2 times per model
@@ -95,44 +97,56 @@ export const chat = action({
             await new Promise((r) => setTimeout(r, 1000 * attempt));
           }
 
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          const response = await fetch(SARVAM_ENDPOINT, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${apiKey}`,
+              "api-subscription-key": apiKey,
             },
+            signal: AbortSignal.timeout(45_000),
             body: JSON.stringify({
               model,
               messages,
-              max_tokens: 1500,
+              max_tokens: 2048,
               temperature: 0.7,
+              // Explicit null disables the reasoning phase — the final answer
+              // lands directly in `message.content` (reasoning mode returns
+              // content: null and burns the token budget on hidden thinking).
+              reasoning_effort: null,
             }),
           });
 
           if (response.status === 429) {
             // Rate limited — try next model or local fallback
-            console.warn(`Rate limited on ${model} (attempt ${attempt + 1})`);
+            console.warn(`Sarvam rate limited on ${model} (attempt ${attempt + 1})`);
             break; // move to next model
           }
 
           if (!response.ok) {
             const err = await response.text().catch(() => "");
-            console.warn(`OpenAI ${model} error ${response.status}: ${err.slice(0, 200)}`);
+            console.warn(`Sarvam ${model} error ${response.status}: ${err.slice(0, 200)}`);
             continue; // retry
           }
 
-          const data = await response.json();
+          const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string | null } }>;
+          };
           const content = data.choices?.[0]?.message?.content;
           if (content) return content;
+
+          // 200 but no content (e.g. reasoning consumed the budget) — retry
+          console.warn(`Sarvam ${model} returned empty content`);
+          continue;
         } catch (e) {
-          console.warn(`OpenAI ${model} exception:`, e);
+          console.warn(`Sarvam ${model} exception:`, e);
           continue;
         }
       }
     }
 
     // All API attempts exhausted — use local fallback
-    console.warn("All OpenAI models exhausted, using local fallback");
+    console.warn("All Sarvam models exhausted, using local fallback");
     return localFallback(args.messages);
   },
 });

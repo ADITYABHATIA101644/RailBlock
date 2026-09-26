@@ -54,19 +54,19 @@ export default function ChatAgent() {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Hey there! 👋 I'm **RailBlock AI**, your intelligent assistant powered by real OpenAI GPT-4o.
+        content: `Hey there! 👋 I'm **RailBlock AI**, your intelligent assistant powered by **Sarvam AI** — India's own large language model.
 
 I can help you with literally anything — not just railway stuff. Ask me about:
 
 🚂 **Indian Railways** — block planning, safety rules, zones, stations, live trains
 📊 **The app** — dashboard, map, approvals, analytics, asset health
-🧠 **Anything else** — general knowledge, coding help, math, explanations
+🧠 **Anything else** — general knowledge, coding help, math, explanations — in English or Indian languages!
 
 Try asking me something like:
 • "What is a railway block and why is it important?"
 • "How do I create a new block request?"
 • "Tell me about the Delhi-Mumbai corridor"
-• "What's 2+2?" (yes, I can do that too!)
+• "रेलवे ब्लॉक क्या है?" (yes, I speak Hindi and 20+ Indian languages!)
 
 What would you like to know?`,
         timestamp: new Date(),
@@ -112,29 +112,28 @@ What would you like to know?`,
       const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
       let userFriendlyMsg = "";
 
-      if (errorMsg.includes("OPENAI_API_KEY")) {
+      if (errorMsg.includes("SARVAM_API_KEY")) {
         userFriendlyMsg = `🔑 **API Key Not Configured**
 
-To use the real AI agent, you need to add your OpenAI API key:
+To use the real AI agent, the Sarvam AI key needs to be configured:
 
-1. Go to **Convex Dashboard** → Your Project → **Settings**
-2. Navigate to **Environment Variables**
-3. Add: \`OPENAI_API_KEY\` = your OpenAI key (starts with sk-)
-4. Save and try again
+1. Go to the project's **Keys / API keys** settings
+2. Add: \`SARVAM_API_KEY\` = your Sarvam key (starts with sk_)
+3. Save and try again
 
-Your OpenAI key gives you access to GPT-4o-mini which powers this assistant.`;
+Your Sarvam AI key powers this assistant via sarvam-105b, India's sovereign LLM.`;
       } else if (errorMsg.includes("401")) {
         userFriendlyMsg = `🔑 **Invalid API Key**
 
-Your OpenAI API key appears to be invalid or expired. Please:
-1. Go to [platform.openai.com](https://platform.openai.com)
+Your Sarvam AI API key appears to be invalid or expired. Please:
+1. Go to [dashboard.sarvam.ai](https://dashboard.sarvam.ai)
 2. Check your API keys
 3. Generate a new key if needed
-4. Update it in Convex dashboard → Settings → Environment Variables`;
+4. Update \`SARVAM_API_KEY\` in the project's Keys settings`;
       } else if (errorMsg.includes("429")) {
         userFriendlyMsg = `⏱️ **Rate Limit Hit**
 
-OpenAI API rate limit reached. Please wait a moment and try again. If this persists, check your OpenAI usage at platform.openai.com.`;
+Sarvam AI rate limit reached. Please wait a moment and try again. If this persists, check your usage at dashboard.sarvam.ai.`;
       } else {
         userFriendlyMsg = `⚠️ **AI Engine Error**
 
@@ -229,7 +228,7 @@ This might be a temporary issue. Please try again in a moment.`;
               <div className="text-sm font-bold text-foreground">RailBlock AI</div>
               <div className="flex items-center gap-1.5">
                 <Wifi className="w-3 h-3 text-chart-3" />
-                <span className="text-[10px] text-chart-3">Real AI — OpenAI GPT-4o</span>
+                <span className="text-[10px] text-chart-3">Real AI — Sarvam 105B</span>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-primary/10 transition-colors">
@@ -258,7 +257,7 @@ This might be a temporary issue. Please try again in a moment.`;
                         <AlertCircle className="w-2.5 h-2.5" /> Error
                       </span>
                     ) : (
-                      <span className="px-1.5 py-0.5 rounded text-[8px] font-medium bg-chart-3/15 text-chart-3">GPT-4o</span>
+                      <span className="px-1.5 py-0.5 rounded text-[8px] font-medium bg-chart-3/15 text-chart-3">Sarvam AI</span>
                     )}
                   </div>
                   {msg.role === "assistant" && !msg.isError && msg.actions && msg.actions.length > 0 && (
@@ -290,7 +289,7 @@ This might be a temporary issue. Please try again in a moment.`;
                       <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: "150ms" }} />
                       <div className="w-1.5 h-1.5 rounded-full bg-primary/50 animate-bounce" style={{ animationDelay: "300ms" }} />
                     </div>
-                    <span className="text-[10px] ml-1" style={{ color: "oklch(0.50 0 0)" }}>Thinking with GPT-4o...</span>
+                    <span className="text-[10px] ml-1" style={{ color: "oklch(0.50 0 0)" }}>Thinking with Sarvam AI...</span>
                   </div>
                 </div>
               </div>
@@ -325,7 +324,7 @@ This might be a temporary issue. Please try again in a moment.`;
             </div>
             <div className="text-center mt-1.5">
               <span className="text-[9px]" style={{ color: "oklch(0.40 0 0)" }}>
-                Real AI by OpenAI GPT-4o • Ask anything
+                Real AI by Sarvam AI (sarvam-105b) • India's sovereign LLM
               </span>
             </div>
           </div>
