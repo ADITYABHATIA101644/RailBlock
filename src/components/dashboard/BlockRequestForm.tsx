@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
   Wrench,
   Users,
   Loader2,
+  Database,
 } from "lucide-react";
 
 const sections = [
@@ -42,6 +43,16 @@ const blockTypes = [
   { id: "short", label: "Short Duration", desc: "Under 60 minutes, limited scope" },
 ];
 
+/** Sections mapped to the junction whose live traffic best represents the section. */
+const sectionStations: Record<string, string> = {
+  "Delhi Junction → New Delhi (KM 0-8)": "NDLS",
+  "New Delhi → Hazrat Nizamuddin (KM 8-16)": "NDLS",
+  "Nizamuddin → Faridabad (KM 16-42)": "NZM",
+  "Faridabad → Mathura Junction (KM 42-120)": "MTJ",
+  "Mathura Jn → Agra Cantt (KM 120-160)": "AGC",
+  "Agra Cantt → Agra Fort (KM 160-165)": "AGC",
+};
+
 const defaultForm = {
   section: "",
   workType: "",
@@ -60,6 +71,23 @@ export default function BlockRequestForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submittedBlockId, setSubmittedBlockId] = useState<string | null>(null);
   const createBlockRequest = useMutation(api.blocks.createBlockRequest);
+
+  // Live traffic from the all-India train DB for the selected section's junction
+  const sectionStationCode = sectionStations[form.section] ?? null;
+  const sectionTraffic = useQuery(
+    api.allTrains.getStationTraffic,
+    sectionStationCode ? { stationCode: sectionStationCode } : "skip",
+  );
+  const busiestHour = sectionTraffic?.histogram?.length
+    ? sectionTraffic.histogram.reduce((a, b) => (b.count > a.count ? b : a))
+    : null;
+  const nightHours =
+    sectionTraffic?.histogram?.filter(
+      (h) => h.hour >= "23:00" || h.hour <= "05:00",
+    ) ?? [];
+  const quietNightHour = nightHours.length
+    ? nightHours.reduce((a, b) => (b.count < a.count ? b : a))
+    : null;
 
   const steps = [
     { label: "Section & Type", icon: MapPin },
@@ -232,6 +260,32 @@ export default function BlockRequestForm() {
                 </button>
               ))}
             </div>
+
+            {/* Live traffic insight — from the all-India train database */}
+            {form.section && sectionStationCode && (
+              <div className="rounded-xl p-4 border border-primary/20 bg-primary/5">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <Database className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold">Live traffic — {sectionStationCode} junction</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    All-India train DB
+                  </span>
+                </div>
+                {sectionTraffic ? (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    <strong className="text-foreground">{sectionTraffic.total} trains/day</strong> touch
+                    this junction ({sectionTraffic.totalDepartures} departures ·{" "}
+                    {sectionTraffic.totalArrivals} arrivals). Busiest hour{" "}
+                    <strong className="text-foreground">{busiestHour?.hour}</strong> with{" "}
+                    {busiestHour?.count} movements; the quietest night hour is{" "}
+                    <strong className="text-foreground">{quietNightHour?.hour}</strong> — the AI planner
+                    places maintenance blocks in windows like this to minimise train conflict.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading live station traffic…</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

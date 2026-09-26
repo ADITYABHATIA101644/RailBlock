@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { BarChart3, Download, Calendar, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Filter } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { BarChart3, Download, Calendar, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Filter, Database } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Real Indian Railway Zones
@@ -63,6 +65,9 @@ const monthlyTrend = [
 export default function AnalyticsDashboard() {
   const [selectedMonth, setSelectedMonth] = useState('September 2026');
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
+
+  // Real zone train volumes from the all-India train database
+  const dbStats = useQuery(api.allTrains.getZoneStats, {});
 
   const handleExport = () => {
     toast.success('Report exported!', {
@@ -312,6 +317,41 @@ export default function AnalyticsDashboard() {
             </div>
           );
         })()}
+      </div>
+
+      {/* Zone train volumes — from the all-India train database */}
+      <div className="rounded-xl border border-border/50 bg-card/50 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Database className="w-4 h-4 text-primary" />
+            Train Volume by Zone — All-India DB
+          </h3>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {dbStats ? `${dbStats.total.toLocaleString('en-IN')} trains indexed` : 'loading…'}
+          </span>
+        </div>
+        {dbStats && dbStats.zones.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+            {dbStats.zones.slice(0, 12).map((z) => (
+              <div key={z.zone} className="flex items-center gap-3">
+                <span className="w-10 text-xs font-bold text-foreground shrink-0">{z.zone}</span>
+                <div className="flex-1 h-4 rounded-lg bg-muted/30 overflow-hidden">
+                  <div
+                    className="h-full rounded-lg bg-gradient-to-r from-primary/80 to-chart-3/80 transition-all duration-700"
+                    style={{ width: `${(z.count / dbStats.zones[0].count) * 100}%` }}
+                  />
+                </div>
+                <span className="w-12 text-right text-xs font-mono text-muted-foreground shrink-0">
+                  {z.count.toLocaleString('en-IN')}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Loading live zone train volumes from the train database…
+          </p>
+        )}
       </div>
     </div>
   );

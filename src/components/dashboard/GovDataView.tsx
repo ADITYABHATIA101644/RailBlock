@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
   Database,
@@ -59,6 +59,9 @@ export default function GovDataView() {
   const getRailwayLand = useAction(api.govData.getRailwayLand);
   const getTrackUpgradation = useAction(api.govData.getTrackUpgradation);
   const searchTimetableAction = useAction(api.govData.searchTimetable);
+
+  // Total trains indexed in the all-India DB (referenced from the timetable tab)
+  const dbStats = useQuery(api.allTrains.getZoneStats, {});
 
   const [tab, setTab] = useState<Tab>("land");
 
@@ -360,6 +363,19 @@ export default function GovDataView() {
           {/* ── RESERVATION TIMETABLE ── */}
           {tab === "timetable" && trains && (
             <div className="space-y-4">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-start gap-2.5">
+                <TrainFront className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  This is the official OGD reservation snapshot (as on {trains.asOn}). The full,
+                  searchable all-India database of{" "}
+                  <span className="font-semibold text-foreground">
+                    {dbStats ? `${dbStats.total.toLocaleString("en-IN")} live trains` : "all live trains"}
+                  </span>{" "}
+                  — with GPS routes, zones, classes and durations — lives in the{" "}
+                  <span className="font-semibold text-foreground">Live Trains</span> tab.
+                </p>
+              </div>
+
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

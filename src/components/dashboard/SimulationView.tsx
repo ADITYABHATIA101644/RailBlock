@@ -13,6 +13,7 @@ import {
   Zap,
   TrendingDown,
   Database,
+  Moon,
 } from "lucide-react";
 
 const timelineData = [
@@ -222,6 +223,72 @@ export default function SimulationView() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Real corridor traffic — powered by the all-India train database */}
+      <div className="rounded-2xl p-5 border border-border/50 bg-card">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Database className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Real Corridor Traffic</h3>
+              <p className="text-xs text-muted-foreground">
+                Live from the all-India train DB — New Delhi (NDLS) &amp; Mathura (MTJ) gateway stations
+              </p>
+            </div>
+          </div>
+          {dbStats && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-semibold whitespace-nowrap">
+              <Database className="w-3 h-3" />
+              {dbStats.total.toLocaleString()} trains indexed
+            </span>
+          )}
+        </div>
+
+        {ndlsTraffic && mtjTraffic ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">NDLS movements/day</div>
+                <div className="text-2xl font-bold text-primary">{ndlsTraffic.total}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{ndlsTraffic.totalDepartures} dep · {ndlsTraffic.totalArrivals} arr</div>
+              </div>
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">MTJ movements/day</div>
+                <div className="text-2xl font-bold text-primary">{mtjTraffic.total}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{mtjTraffic.totalDepartures} dep · {mtjTraffic.totalArrivals} arr</div>
+              </div>
+              <div className="p-4 rounded-xl bg-chart-4/5 border border-chart-4/20">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Peak at NDLS</div>
+                <div className="text-2xl font-bold text-chart-4">{peakHour?.hour ?? "—"}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{peakHour ? `${peakHour.count} movements` : "no data"}</div>
+              </div>
+              <div className="p-4 rounded-xl bg-chart-3/5 border border-chart-3/20">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Corridor movements</div>
+                <div className="text-2xl font-bold text-chart-3">{corridorTotal}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">NDLS + MTJ combined</div>
+              </div>
+            </div>
+
+            {quietest && (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-chart-3/5 border border-chart-3/20">
+                <Moon className="w-4 h-4 text-chart-3 mt-0.5 shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold">
+                    AI-preferred block window: {quietest.hour} — quietest night hour
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Only {quietest.count} scheduled movements at NDLS between 23:00–05:00, versus {peakHour?.count ?? "—"} at the {peakHour?.hour ?? "—"} peak. The optimizer places maintenance blocks here to minimise train conflict.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">Loading live corridor traffic from the train database…</div>
+        )}
       </div>
 
       {/* Scenario comparison */}
