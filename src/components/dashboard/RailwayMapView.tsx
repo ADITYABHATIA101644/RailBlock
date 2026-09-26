@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { MapPin, Layers, Train as TrainIcon, RotateCw } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { MapPin, Layers, Train as TrainIcon, RotateCw, Database } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -45,6 +47,7 @@ interface TrainData {
   status: string;
   speed: number;
   delay: number;
+  pos: [number, number];
 }
 
 // ─── ZONES ───
@@ -181,21 +184,23 @@ const corridors: Corridor[] = [
   },
 ];
 
-// ─── TRAINS ───
-const demoTrains: TrainData[] = [
-  { id: '12625', name: 'GT Express', number: '12625', corridorId: 'gt-express', progress: 0.40, status: 'Running', speed: 110, delay: 15 },
-  { id: '12301', name: 'Howrah Rajdhani', number: '12301', corridorId: 'delhi-howrah', progress: 0.55, status: 'Running', speed: 120, delay: 8 },
-  { id: '12951', name: 'Mumbai Rajdhani', number: '12951', corridorId: 'mumbai-delhi', progress: 0.45, status: 'Running', speed: 115, delay: 0 },
-  { id: '12621', name: 'Tamil Nadu Exp', number: '12621', corridorId: 'chennai-trivandrum', progress: 0.20, status: 'Running', speed: 95, delay: 35 },
-  { id: '12626', name: 'Kerala Express', number: '12626', corridorId: 'gt-express', progress: 0.78, status: 'Running', speed: 100, delay: 22 },
-  { id: '12015', name: 'Delhi-Jaipur Shatabdi', number: '12015', corridorId: 'delhi-jaipur', progress: 0.55, status: 'Running', speed: 130, delay: 5 },
-  { id: '12009', name: 'Mumbai-Ahd Shatabdi', number: '12009', corridorId: 'mumbai-ahmedabad', progress: 0.75, status: 'Running', speed: 125, delay: 0 },
-  { id: '12839', name: 'Howrah-Chennai Mail', number: '12839', corridorId: 'howrah-chennai', progress: 0.55, status: 'Running', speed: 90, delay: 18 },
-  { id: '12461', name: 'Delhi-Amritsar Exp', number: '12461', corridorId: 'delhi-amritsar', progress: 0.80, status: 'Running', speed: 100, delay: 0 },
-  { id: '12230', name: 'Lucknow Mail', number: '12230', corridorId: 'delhi-lucknow', progress: 0.80, status: 'Running', speed: 105, delay: 10 },
-  { id: '15955', name: 'Kolkata-Guwahati Exp', number: '15955', corridorId: 'kolkata-guwahati', progress: 0.80, status: 'Running', speed: 85, delay: 25 },
-  { id: '11301', name: 'Udyan Express', number: '11301', corridorId: 'mumbai-bangalore', progress: 0.55, status: 'Running', speed: 95, delay: 12 },
-];
+// ─── TRAINS (real, from the 5,200+ train DB) ───
+interface DbTrain {
+  number: string;
+  name: string;
+  fromCode: string;
+  fromName: string;
+  toCode: string;
+  toName: string;
+  zone: string;
+  type: string;
+  distance: number;
+  departure: string;
+  arrival: string;
+  durationMin: number;
+  classes?: string;
+  coords: number[][];
+}
 
 function interpolateCorridor(points: [number, number][], progress: number): [number, number] {
   if (points.length < 2) return points[0] ?? [0, 0];
@@ -230,19 +235,62 @@ export default function RailwayMapView() {
   const [showCorridors, setShowCorridors] = useState(true);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [selectedTrain, setSelectedTrain] = useState<TrainData | null>(null);
-  const [trainPositions, setTrainPositions] = useState(() =>
-    demoTrains.map(t => ({
-      ...t,
-      pos: interpolateCorridor(
-        corridors.find(c => c.id === t.corridorId)?.points ?? [[0, 0]],
-        t.progress
-      ),
-    }))
-  );
+  const [trainPositions, setTrainPositions] = useState<TrainData[]>([]);
   const [loading, setLoading] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+
+  // Real trains from the all-India DB (spread across zones, with GPS routes)
+  const dbTrains = useQuery(api.allTrains.getMapTrains, { perZone: 2 });
+  const dbZoneStats = useQuery(api.allTrains.getZoneStats, {});
+
+  // Derive animated positions from real DB trains along their actual routes
+  useEffect(() => {
+    if (!dbTrains || dbTrains.length === 0) return;
+    setTrainPositions(prev => {
+      const byNumber = new Map(prev.map(p => [p.number, p]));
+      return dbTrains.map((t: DbTrain) => {
+        const old = byNumber.get(t.number);
+        const pts = (t.coords && t.coords.length >= 2
+          ? t.coords.map(c => [c[0], c[1]] as [number, number])
+          : ([[
+              // fallback: origin→destination straight line via rough midpoint
+              (28.6 + 13.0) / 2, (77.2 + 80.2) / 2,
+            ], [28.6, 77.2]] as [number, number][]));
+        const progress = old ? old.progress : Math.random() * 0.7 + 0.1;
+        // Deterministic per-train speed profile in a realistic band
+        const baseSpeed = t.type === 'Rajdhani' || t.type === 'Shatabdi' || t.type === 'Vande Bharat' ? 120 : t.type === 'Passenger' ? 55 : 85;
+        const speed = old ? old.speed : baseSpeed + Math.floor(Math.random() * 15);
+        // Pseudo delay derived from train number hash (stable per train)
+        const delay = old ? old.delay : (parseInt(t.number, 10) % 37) - 12;
+        return {
+          id: t.number,
+          name: t.name,
+          number: t.number,
+          corridorId: `${t.fromCode}-${t.toCode}`,
+          progress,
+          status: 'Running',
+          speed,
+          delay: Math.max(0, delay),
+          pos: interpolateCorridor(pts, progress),
+        } as TrainData & { routePoints?: [number, number][] };
+      });
+    });
+  }, [dbTrains]);
+
+  // Keep route points for progress animation on refresh
+  const routePointsRef = useRef<Map<string, [number, number][]>>(new Map());
+  useEffect(() => {
+    if (!dbTrains) return;
+    const m = new Map<string, [number, number][]>() as Map<string, [number, number][]>;
+    for (const t of dbTrains as DbTrain[]) {
+      m.set(t.number, (t.coords && t.coords.length >= 2
+        ? t.coords.map(c => [c[0], c[1]] as [number, number])
+        : ([[28.6, 77.2], [19.0, 72.8]] as [number, number][])));
+    }
+    routePointsRef.current = m;
+  }, [dbTrains]);
 
   const filteredStations = useMemo(() => {
     if (!activeZone) return majorStations;
@@ -399,16 +447,14 @@ export default function RailwayMapView() {
     setTimeout(() => {
       setTrainPositions(prev =>
         prev.map(t => {
+          const pts = routePointsRef.current.get(t.number) ?? ([[0, 0]] as [number, number][]);
           const newProgress = Math.min(1, Math.max(0, t.progress + (Math.random() - 0.3) * 0.05));
           return {
             ...t,
             progress: newProgress,
-            speed: Math.max(60, Math.min(140, t.speed + (Math.random() - 0.5) * 10)),
+            speed: Math.max(50, Math.min(150, t.speed + (Math.random() - 0.5) * 10)),
             delay: Math.max(0, t.delay + Math.floor((Math.random() - 0.5) * 8)),
-            pos: interpolateCorridor(
-              corridors.find(c => c.id === t.corridorId)?.points ?? [[0, 0]],
-              newProgress
-            ),
+            pos: interpolateCorridor(pts, newProgress),
           };
         })
       );
@@ -427,6 +473,9 @@ export default function RailwayMapView() {
           </h2>
           <p className="text-sm text-[#abaebb] mt-1" style={{ fontFamily: 'var(--font-inter)' }}>
             {majorStations.length} stations • {corridors.length} corridors • {trainPositions.length} live trains
+            {dbZoneStats && dbZoneStats.total > 0 && (
+              <span className="text-[#22C55E]"> • {dbZoneStats.total.toLocaleString('en-IN')} in DB</span>
+            )}
           </p>
         </div>
         <button
@@ -533,6 +582,8 @@ export default function RailwayMapView() {
               <div className="flex items-center gap-2 text-sm" style={{ fontFamily: 'var(--font-inter)' }}>
                 <div className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
                 <span className="text-[#ffffff] font-medium">{trainPositions.length} Live Trains</span>
+                <Database className="w-3.5 h-3.5 text-[#22C55E]" />
+                <span className="text-[10px] text-[#abaebb] font-mono">real routes</span>
               </div>
             </div>
           )}

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import {
   Activity,
   Play,
@@ -10,6 +12,7 @@ import {
   CheckCircle2,
   Zap,
   TrendingDown,
+  Database,
 } from "lucide-react";
 
 const timelineData = [
@@ -46,6 +49,21 @@ export default function SimulationView() {
   const [simProgress, setSimProgress] = useState(0);
   const [selectedScenario, setSelectedScenario] = useState("ai-optimized");
 
+  // Real traffic for the simulated corridor (New Delhi ↔ Agra sections)
+  const ndlsTraffic = useQuery(api.allTrains.getStationTraffic, { stationCode: "NDLS" });
+  const mtjTraffic = useQuery(api.allTrains.getStationTraffic, { stationCode: "MTJ" });
+  const dbStats = useQuery(api.allTrains.getZoneStats, {});
+  const corridorTotal = (ndlsTraffic?.total ?? 0) + (mtjTraffic?.total ?? 0);
+  const peakHour = ndlsTraffic?.histogram
+    ? ndlsTraffic.histogram.reduce((a, b) => (b.count > a.count ? b : a), ndlsTraffic.histogram[0])
+    : null;
+  const quietHours = ndlsTraffic?.histogram
+    ? ndlsTraffic.histogram.filter(h => h.hour >= "23:00" || h.hour <= "05:00")
+    : [];
+  const quietest = quietHours.length > 0
+    ? quietHours.reduce((a, b) => (b.count < a.count ? b : a), quietHours[0])
+    : null;
+
   const handleSimulate = () => {
     setIsSimulating(true);
     setSimProgress(0);
@@ -64,7 +82,7 @@ export default function SimulationView() {
   return (
     <div className="space-y-6">
       {/* Scenario selector */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm font-medium text-muted-foreground">Scenario:</span>
         {[
           { id: "ai-optimized", label: "AI Optimized" },

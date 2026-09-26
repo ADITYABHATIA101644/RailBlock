@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import {
@@ -71,10 +71,18 @@ export default function LiveTrainsPanel() {
   const [stationResults, setStationResults] = useState<any[] | null>(null);
 
   const fetchLiveTrain = useAction(api.trainData.getLiveTrain);
-  const fetchIRCTCSchedule = useAction(api.trainData.getTrainSchedule);
   const fetchRealSchedule = useAction(api.railwayData.getTrainSchedule);
   const searchRealTrains = useAction(api.railwayData.searchTrains);
   const searchRealStations = useAction(api.railwayData.searchStations);
+
+  // Full-India train database (5,200+ real trains seeded into Convex)
+  const dbTrainResults = useQuery(api.allTrains.searchTrains,
+    searchMode === "train" && searchQuery.trim().length >= 2
+      ? { query: searchQuery.trim(), limit: 50 }
+      : "skip"
+  );
+  const seedStatus = useQuery(api.allTrains.getSeedStatus, {});
+  const zoneStats = useQuery(api.allTrains.getZoneStats, {});
 
   const handleTrainSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -295,18 +303,114 @@ export default function LiveTrainsPanel() {
               Search
             </button>
           </div>
-        </div>
-
-        {/* Data source indicator */}
-        <div className="flex items-center gap-2 text-xs">
+        </div>      {/* Data source indicator + seed status */}
+      <div className="flex flex-wrap items-center gap-3 text-xs">
           <Database className="w-3 h-3 text-primary" />
           <span className="text-primary font-medium">
             {dataSource === "real"
               ? "Real Indian Railways data — datameet/railways + IRCTC API"
               : "Demo data"}
           </span>
+          {zoneStats && zoneStats.total > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-chart-3/15 text-chart-3 font-semibold">
+              {zoneStats.total.toLocaleString("en-IN")} trains indexed
+            </span>
+          )}
         </div>
+
+        {/* Seed progress banner */}
+        {seedStatus && !seedStatus.done && (
+          <div className="mt-3 p-3 rounded-xl bg-primary/10 border border-primary/20">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-primary">
+                Loading all-India train database… {seedStatus.cursor.toLocaleString("en-IN")} / {seedStatus.total.toLocaleString("en-IN")}
+              </span>
+              <span className="text-muted-foreground font-mono">
+                {Math.round((seedStatus.cursor / Math.max(1, seedStatus.total)) * 100)}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-primary/20 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${(seedStatus.cursor / Math.max(1, seedStatus.total)) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* DB search results (full 5,200+ train database) */}
+      {searchMode === "train" && dbTrainResults && dbTrainResults.length > 0 && (
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border/30 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-chart-3" />
+              <h3 className="font-semibold">
+                All-India Database — {dbTrainResults.length} matching trains
+              </h3>
+            </div>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              live DB search
+            </span>
+          </div>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b border-border/30">
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Train</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Route</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Type</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Dep → Arr</th>
+                  <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Distance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dbTrainResults.map((t) => (
+                  <tr
+                    key={t.number}
+                    className="border-b border-border/20 hover:bg-primary/5 cursor-pointer"
+                    onClick={() => {
+                      setSearchQuery(t.number);
+                      loadTrainFromResult({
+                        number: t.number,
+                        name: t.name,
+                        fromName: t.fromName,
+                        fromCode: t.fromCode,
+                        toName: t.toName,
+                        toCode: t.toCode,
+                        type: t.type,
+                        distance: t.distance,
+                        departure: t.departure,
+                        arrival: t.arrival,
+                        durationH: Math.floor(t.durationMin / 60),
+                        durationM: t.durationMin % 60,
+                      });
+                    }}
+                  >
+                    <td className="px-5 py-3">
+                      <div className="font-mono font-semibold">{t.number}</div>
+                      <div className="text-xs text-muted-foreground max-w-48 truncate">{t.name}</div>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
+                      {t.fromCode} → {t.toCode}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">{t.type}</span>
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs">{t.departure.slice(0,5)} → {t.arrival.slice(0,5)}</td>
+                    <td className="px-5 py-3 text-xs">{t.distance ? `${t.distance} km` : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {searchMode === "train" && dbTrainResults !== undefined && dbTrainResults.length === 0 && searchQuery.trim().length >= 2 && (
+        <div className="rounded-2xl p-4 border border-border/50 bg-card text-sm text-muted-foreground">
+          No trains matching “{searchQuery.trim()}” in the all-India database yet. The dataset loads in batches — try again in a few seconds.
+        </div>
+      )}
 
       {/* Search Results — trains from dataset */}
       {searchResults && searchResults.length > 0 && (

@@ -135,6 +135,39 @@ const schema = defineSchema(
       .index("by_blockId", ["blockId"])
       .index("by_created", ["createdAt"]),
 
+    // All-India train database (seeded from the open datameet/railways dataset,
+    // ~8,000 real Indian Railways trains with routes, timings and classes)
+    trains: defineTable({
+      number: v.string(),            // 5-digit train number
+      name: v.string(),
+      fromCode: v.string(),
+      fromName: v.string(),
+      toCode: v.string(),
+      toName: v.string(),
+      zone: v.string(),
+      type: v.string(),              // Rajdhani | Shatabdi | Superfast | Mail/Exp | ...
+      distance: v.number(),          // route km
+      departure: v.string(),         // HH:MM at origin
+      arrival: v.string(),           // HH:MM at destination
+      durationMin: v.number(),
+      classes: v.optional(v.string()),
+      coords: v.optional(v.array(v.array(v.number()))), // downsampled [[lat,lng],...]
+      search: v.string(),            // lowercase full-text blob
+      tokens: v.array(v.string()),   // word tokens for indexed search
+    })
+      .index("by_number", ["number"])
+      .index("by_zone", ["zone"])
+      .index("by_from", ["fromCode"])
+      .index("by_to", ["toCode"])
+      .index("by_search", ["search"])
+      .index("by_token", ["tokens"]),
+
+    // Simple key/value store for seed bookkeeping
+    appMeta: defineTable({
+      key: v.string(),
+      value: v.any(),
+    }).index("by_key", ["key"]),
+
     // add other tables here
 
     // tableName: defineTable({
